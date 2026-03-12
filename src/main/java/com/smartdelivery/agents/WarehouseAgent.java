@@ -12,7 +12,7 @@ import java.util.*;
 public class WarehouseAgent extends Agent {
 
     public static final Location WAREHOUSE_LOCATION =
-            new Location(36.7538, 3.0588, "Central Warehouse");
+            new Location(35.7069, 4.5428, "Central Warehouse - M'sila");
 
     private final Queue<Order> pendingOrders = new LinkedList<>();
     private final Map<String, Order> allOrders = new HashMap<>();
