@@ -7,164 +7,223 @@ import jade.lang.acl.MessageTemplate;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.*;
 import com.smartdelivery.model.Location;
+import com.smartdelivery.gui.MapPanel;
+import org.jxmapviewer.viewer.GeoPosition;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DeliveryAgent extends Agent {
-    //SPEED 30 km in simulation
-    private static final double SPEED_KMH = 30.0;
-    private Location currentLocation;
-    private boolean isAvailable = true;
-    private String agentColor;
-    private AgentPositionListener positionListener;
-    public interface AgentPositionListener {
-        void onPositionUpdate(String agentId, Location location, String status);
-    }
+
+    private static final double SPEED = 30.0; //km/h
+    private static final int    STEP  = 250;  //ms between waypoints on screen
+    private Location pos;
+    private boolean  free  = true;
+    private String   color;
+
     @Override
     protected void setup() {
-        currentLocation =WarehouseAgent.WAREHOUSE_LOCATION;
-        Object[] args= getArguments();
-        agentColor = (args != null && args.length > 0) ?
-                args[0].toString() : "BLUE";
+        pos=WarehouseAgent.WAREHOUSE_LOCATION;
+        color=getArguments() !=null && getArguments().length >0
+                ? getArguments()[0].toString() :"BLUE";
 
-        System.out.println("[DELIVERY-" + getLocalName() + "]started at warehouse");
-        DFAgentDescription dfd = new DFAgentDescription();
+        MapRegistry.updateAgent(getLocalName(),pos,"Idle",myColor());
+        MapRegistry.log("[AGENT] "+ getLocalName() +" ready at warehouse");
+        DFAgentDescription dfd =new DFAgentDescription();
         dfd.setName(getAID());
-        ServiceDescription sd = new ServiceDescription();
+        ServiceDescription sd =new ServiceDescription();
         sd.setType("delivery");
-        sd.setName("Delivery-"+ getLocalName());
+        sd.setName("Delivery-"+getLocalName());
         dfd.addServices(sd);
-        try { DFService.register(this, dfd); }
-        catch (Exception e) { e.printStackTrace(); }
-        addBehaviour(new ListenForJobBehaviour());
+        try {
+            DFService.register(this,dfd);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        addBehaviour(
+                new WaitForJob()
+        );
     }
-    private class ListenForJobBehaviour extends CyclicBehaviour {
+    private java.awt.Color myColor(){
+        return switch (color) {
+            case "RED"-> java.awt.Color.RED;
+            case "GREEN"->new java.awt.Color(0,200,80);
+            case "ORANGE"-> new java.awt.Color(160,32,240); // shows as purple
+            default-> java.awt.Color.CYAN;
+        };
+    }
+    private class WaitForJob extends CyclicBehaviour{
         @Override
-        public void action() {
-            MessageTemplate mt =MessageTemplate.MatchPerformative(ACLMessage.CFP);
-            ACLMessage cfp = myAgent.receive(mt);
-            if (cfp != null && isAvailable) {
-                String[] parts= cfp.getContent().split(":");
-                String orderId=parts[1];
-                double destLat =Double.parseDouble(parts[2]);
-                double destLon=Double.parseDouble(parts[3]);
-                Location dest = new Location(destLat, destLon, "Dest-" + orderId);
-                double distKm =WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dest);
-                double timeHours =distKm /SPEED_KMH;
-                double timeSeconds =timeHours * 3600;
-
-                ACLMessage proposal = cfp.createReply();
-                proposal.setPerformative(ACLMessage.PROPOSE);
-                proposal.setContent("BID:" + getLocalName() + ":" + timeSeconds);
-                proposal.setConversationId(cfp.getConversationId());
-                send(proposal);
-                System.out.println("[DELIVERY-"+ getLocalName() + "] proposed for " +
-                        orderId + " (est. "+(int)timeSeconds +"s)");
-
-            } else if (cfp !=null && !isAvailable) {
-                // Busy
-                ACLMessage refuse = cfp.createReply();
-                refuse.setPerformative(ACLMessage.REFUSE);
-                refuse.setContent("BUSY");
-                send(refuse);
+        public void action(){
+            ACLMessage cfp=myAgent.receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
+            if(cfp != null){
+                if (free){
+                    String[] p =cfp.getContent().split(":");
+                    String oid =p[1];
+                    Location dst=new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), "dst");
+                    double eta=(WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst) / SPEED) * 3600.0;
+                    ACLMessage bid = cfp.createReply();
+                    bid.setPerformative(ACLMessage.PROPOSE);
+                    bid.setContent("BID:"+getLocalName()+":"+eta);
+                    bid.setConversationId(cfp.getConversationId());
+                    send(bid);
+                    System.out.println("["+getLocalName()+"]bid for "+oid);
+                }else{
+                    ACLMessage no=cfp.createReply();
+                    no.setPerformative(ACLMessage.REFUSE);
+                    no.setContent("BUSY");
+                    send(no);
+                }
             }
 
-
-            MessageTemplate acceptMt = MessageTemplate.or(
+            MessageTemplate mt = MessageTemplate.or(
                     MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
                     MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL));
-            ACLMessage response = myAgent.receive(acceptMt);
-            if (response != null) {
-                if (response.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
-                    isAvailable= false;
-                    String[] p = response.getContent().split(":");
-                    String orderId =p[1];
-                    double lat =Double.parseDouble(p[2]);
-                    double lon =Double.parseDouble(p[3]);
-                    String custId = p[4];
-                    Location dest= new Location(lat, lon, custId);
-                    addBehaviour(
-                            new ExecuteDeliveryBehaviour(
-                            orderId, dest, custId));
-                }
+            ACLMessage reply =myAgent.receive(mt);
+            if(reply != null && reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL){
+                free =false;
+                String[] p = reply.getContent().split(":");
+                String oid =p[1];
+                Location dst = new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]), p[4]);
+                addBehaviour(new GoDeliver(oid,dst));
             }
-
-            if (cfp == null && response == null) block();
+            if(cfp == null && reply== null) block();
         }
     }
 
-    private class ExecuteDeliveryBehaviour extends Behaviour {
-        private final String orderId;
-        private final Location destination;
-        private final String customerId;
-        private int step = 0;
-        private static final int TOTAL_STEPS = 20;
-        private boolean done = false;
-
-        ExecuteDeliveryBehaviour(String orderId,Location dest,String custId){
-            this.orderId= orderId;
-            this.destination=dest;
-            this.customerId=custId;
+    // drives to the destination, drops the package, comes back
+    private class GoDeliver extends Behaviour{
+        private final String oid;
+        private final Location dst;
+        private List<GeoPosition> path;
+        private int i =0;
+        private boolean fetched = false;
+        private boolean over= false;
+        GoDeliver(String oid,Location dst){
+            this.oid =oid;
+            this.dst =dst;
         }
 
+        @Override
+        public void action(){
+            if(!fetched){
+                fetched =true;
+                MapRegistry.updateAgent(getLocalName(),pos,"Routing...",myColor());
+                path=MapPanel.fetchRoute(WarehouseAgent.WAREHOUSE_LOCATION,dst);
+                if(path==null || path.size()<2){
+                    path = straightLine(WarehouseAgent.WAREHOUSE_LOCATION,dst,30);
+                }
+                MapRegistry.updateAgentRoute(getLocalName(),path);
+                MapRegistry.log("[MOVING] "+ getLocalName() +" heading out for "+ oid);
+                return;
+            }
+            if(i<path.size()){
+                GeoPosition wp=path.get(i++);
+                pos = new Location(wp.getLatitude(),wp.getLongitude(), getLocalName());
+                MapRegistry.updateAgent(getLocalName(),pos,"Delivering "+oid, myColor());
+                sleep();
+            }else{
+                pos=dst;
+                MapRegistry.updateAgent(getLocalName(),pos,"Delivered",myColor());
+                MapRegistry.updateAgentRoute(getLocalName(),null);
+                notifyWarehouse(oid);
+                addBehaviour(new GoBack());
+                over=true;
+            }
+        }
+        @Override public boolean done(){
+            return over;
+        }
+    }
+
+    // after a delivery
+    private class GoBack extends Behaviour{
+        private List<GeoPosition> path;
+        private int i= 0;
+        private boolean fetched = false;
+        private boolean over = false;
         @Override
         public void action() {
-            if (step <TOTAL_STEPS) {
-                double t =(double)(step+1) /TOTAL_STEPS;
-                double lat =lerp(
-                        WarehouseAgent.WAREHOUSE_LOCATION.getLatitude(),
-                        destination.getLatitude(),t);
-                double lon =lerp(
-                        WarehouseAgent.WAREHOUSE_LOCATION.getLongitude(),
-                        destination.getLongitude(),t);
-                currentLocation = new Location(lat,lon,getLocalName());
-
-                if (positionListener !=null) {
-                    positionListener.onPositionUpdate(
-                            getLocalName(), currentLocation,
-                            "Delivering "+ orderId);
+            if(!fetched){
+                fetched=true;
+                path=MapPanel.fetchRoute(pos, WarehouseAgent.WAREHOUSE_LOCATION);
+                if(path == null || path.size()<2){
+                    path=straightLine(pos,WarehouseAgent.WAREHOUSE_LOCATION,20);
                 }
-                step++;
-                try { Thread.sleep(500); }
-                catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-            } else {
-                currentLocation = destination;
-                System.out.println("[DELIVERY-" +getLocalName()+"] DELIVERED: " +
-                        orderId + " to " + customerId);
-
-                DFAgentDescription template =new DFAgentDescription();
-                ServiceDescription sd =new ServiceDescription();
-                sd.setType("warehouse");
-                template.addServices(sd);
-                try {
-                    DFAgentDescription[] results =
-                            DFService.search(myAgent, template);
-                    if (results.length> 0) {
-                        ACLMessage inform =new ACLMessage(ACLMessage.INFORM);
-                        inform.addReceiver(results[0].getName());
-                        inform.setContent("DELIVERED:"+orderId);
-                        send(inform);
-                    }
-                } catch (Exception e) {e.printStackTrace();}
-
-                isAvailable = true;
-                done = true;
+                MapRegistry.updateAgentRoute(getLocalName(),path);
+                MapRegistry.updateAgent(getLocalName(),pos,"Returning...",myColor());
+                return;
+            }
+            if(i< path.size()){
+                GeoPosition wp=path.get(i++);
+                pos=new Location(wp.getLatitude(), wp.getLongitude(), getLocalName());
+                MapRegistry.updateAgent(getLocalName(), pos, "Returning...", myColor());
+                sleep();
+            }else{
+                pos= WarehouseAgent.WAREHOUSE_LOCATION;
+                free = true;
+                MapRegistry.updateAgent(getLocalName(), pos,"Idle",myColor());
+                MapRegistry.updateAgentRoute(getLocalName(),null);
+                MapRegistry.log("[AGENT] "+getLocalName()+ " back at warehouse");
+                over=true;
             }
         }
-        @Override
-        public boolean done() {return done; }
-        private double lerp(double a,double b,double t) {
-            return a +t*(b-a);
+
+        @Override public boolean done(){
+            return over;
         }
     }
 
-    public void setPositionListener(AgentPositionListener l) {
-        this.positionListener = l; }
-    public Location getCurrentLocation() { return currentLocation; }
-    public String getAgentColor()         { return agentColor; }
+    private void notifyWarehouse(String oid){
+        DFAgentDescription t=new DFAgentDescription();
+        ServiceDescription s =new ServiceDescription();
+        s.setType("warehouse");
+        t.addServices(s);
+        try{
+            DFAgentDescription[] found = DFService.search(this,t);
+            if(found.length>0){
+                ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+                msg.addReceiver(found[0].getName());
+                msg.setContent("DELIVERED:" +oid);
+                send(msg);
+            }
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+    private List<GeoPosition>straightLine(Location a,Location b,int n){
+        List<GeoPosition> pts=new ArrayList<>();
+        for(int k=1; k<=n; k++){
+            double t =(double) k/n;
+            pts.add(new GeoPosition(
+                    a.getLatitude()+t*(b.getLatitude()-a.getLatitude()),
+                    a.getLongitude()+t* (b.getLongitude()-a.getLongitude())));
+        }
+        return pts;
+    }
+
+    private void sleep(){
+        try {
+            Thread.sleep(STEP);
+        }
+        catch (InterruptedException e){
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public Location getCurrentLocation(){
+        return pos;
+    }
+    public String   getAgentColor(){
+        return color;
+    }
 
     @Override
-    protected void takeDown() {
-        try {DFService.deregister(this);}
+    protected void takeDown(){
+        try{
+            DFService.deregister(this);
+        }
         catch (Exception e) {}
-        System.out.println("[DELIVERY-"+getLocalName()+ "] Terminated.");
     }
 }

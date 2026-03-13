@@ -1,40 +1,65 @@
 package com.smartdelivery.model;
 
 import java.time.Instant;
-public class Order {
-    public enum Status { PENDING, ASSIGNED, IN_TRANSIT, DELIVERED }
-    private final String orderId;
-    private final String customerId;
-    private final Location destination;
-    private Status status;
-    private String assignedAgentId;
-    private final Instant createdAt;
-    private Instant deliveredAt;
 
-    public Order(String orderId, String customerId, Location destination) {
-        this.orderId    = orderId;
-        this.customerId = customerId;
-        this.destination = destination;
-        this.status     = Status.PENDING;
-        this.createdAt  = Instant.now();
+public class Order{
+    public enum Status{PENDING,ASSIGNED,IN_TRANSIT,DELIVERED}
+    private final String id;
+    private final String zone;      // neighborhood name used as customer label
+    private final Location dest;
+    private Status status;
+    private String agent;
+
+    private final Instant createdAt;
+    private Instant assignedAt;
+    private Instant  deliveredAt;
+
+    public Order(String id, String zone, Location dest) {
+        this.id= id;
+        this.zone= zone;
+        this.dest= dest;
+        this.status= Status.PENDING;
+        this.createdAt= Instant.now();
     }
-    public void assign(String agentId) {
-        this.assignedAgentId = agentId;
-        this.status = Status.ASSIGNED;
+
+    public void assign(String agentId){
+        this.agent= agentId;
+        this.status= Status.ASSIGNED;
+        this.assignedAt= Instant.now();
     }
-    public void markDelivered() {
-        this.status = Status.DELIVERED;
+
+    public void markInTransit(){
+        this.status=Status.IN_TRANSIT;
+    }
+    public void markDelivered(){
+        this.status= Status.DELIVERED;
         this.deliveredAt = Instant.now();
     }
-    public long getDeliveryTimeSeconds() {
-        if (deliveredAt == null) return -1;
-        return deliveredAt.getEpochSecond() - createdAt.getEpochSecond();
+    public long getWaitTimeSeconds() {
+        return assignedAt==null ?-1:assignedAt.getEpochSecond()-createdAt.getEpochSecond();
     }
-
-    //getters
-    public String getOrderId()       { return orderId; }
-    public String getCustomerId()    { return customerId; }
-    public Location getDestination() { return destination; }
-    public Status getStatus()        { return status; }
-    public String getAssignedAgent() { return assignedAgentId; }
+    public long getTotalTimeSeconds(){
+        return deliveredAt==null ?-1:deliveredAt.getEpochSecond()-createdAt.getEpochSecond();
+    }
+    public long getAgeSeconds(){
+        return Instant.now().getEpochSecond()-createdAt.getEpochSecond();
+    }
+    public String getOrderId(){
+        return id;
+    }
+    public String getCustomerId(){
+        return zone;
+    }
+    public Location getDestination() {
+        return dest;
+    }
+    public Status getStatus(){
+        return status;
+    }
+    public String getAssignedAgent() {
+        return agent;
+    }
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

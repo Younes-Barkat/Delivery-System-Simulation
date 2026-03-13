@@ -2,189 +2,225 @@ package com.smartdelivery.agents;
 
 import jade.core.Agent;
 import jade.core.behaviours.*;
+import java.util.*;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.*;
 import com.smartdelivery.model.*;
-import java.util.*;
 
-public class WarehouseAgent extends Agent {
+public class WarehouseAgent extends Agent{
+    public static final Location WAREHOUSE_LOCATION=new Location(35.7069,4.5428,"Central Warehouse - M'sila");
 
-    public static final Location WAREHOUSE_LOCATION =
-            new Location(35.7069, 4.5428, "Central Warehouse-M'sila");
+    //M'sila bounding box measured on OSM
+    private static final double LAT_MIN=35.685;
+    private static final double LAT_MAX=35.740;
+    private static final double LON_MIN =4.505;
+    private static final double LON_MAX=4.580;
 
-    private final Queue<Order> pendingOrders = new LinkedList<>();
-    private final Map<String, Order> allOrders = new HashMap<>();
-    private int deliveredCount = 0;
+    private static final int MAX_ACTIVE_ORDERS=6;
+    private static final int ORDER_SPAWN_DELAY_MS =6000;
+    private static final int DISPATCH_TICK_MS=2500;
+
+    private final Queue<Order>pending=new LinkedList<>();
+    private final Map<String, Order>allOrders =new HashMap<>();
+    private final Random rng = new Random();
+
+    private int liveOrders = 0;
+    private int totalDone = 0;
+    private int orderSeq = 1;
 
     @Override
     protected void setup() {
-        System.out.println("[WAREHOUSE] Agent started: " + getLocalName());
-        DFAgentDescription dfd = new DFAgentDescription();
+        System.out.println("[WAREHOUSE] online at " +WAREHOUSE_LOCATION.getName());
+        DFAgentDescription dfd =new DFAgentDescription();
         dfd.setName(getAID());
-        ServiceDescription sd = new ServiceDescription();
+        ServiceDescription sd=new ServiceDescription();
         sd.setType("warehouse");
         sd.setName("SmartDelivery-Warehouse");
         dfd.addServices(sd);
-        try { DFService.register(this, dfd); }
-        catch (Exception e) { e.printStackTrace(); }
-        addBehaviour(new ReceiveOrderBehaviour());
-        addBehaviour(new TickerBehaviour(this, 3000) {
-            @Override
-            protected void onTick() {
-                if (!pendingOrders.isEmpty()) {
-                    dispatchNextOrder();
-                }
+        try{
+            DFService.register(this,dfd);
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+        addBehaviour(new ReceiveDeliveryConfirmation());
+        addBehaviour(new TickerBehaviour(this,DISPATCH_TICK_MS) {
+            @Override protected void onTick() {
+                if(!pending.isEmpty())dispatchNextOrder();
             }
         });
-        addBehaviour(new ReceiveDeliveryConfirmation());
+        addBehaviour(new WakerBehaviour(this,3000){
+            @Override
+            protected void onWake(){
+                for(int i=0; i<3; i++)
+                    spawnRandomOrder();
+            }
+        });
     }
 
-    private class ReceiveOrderBehaviour extends CyclicBehaviour {
-        @Override
-        public void action() {
-            MessageTemplate mt = MessageTemplate.MatchPerformative(
-                    ACLMessage.REQUEST);
-            ACLMessage msg = myAgent.receive(mt);
-            if (msg != null) {
-                String content = msg.getContent();
-                if (content.startsWith("ORDER:")) {
-                    String[] parts = content.split(":");
-                    String customerId = parts[1];
-                    double lat = Double.parseDouble(parts[2]);
-                    double lon = Double.parseDouble(parts[3]);
-                    Location dest = new Location(lat, lon, "Customer-" + customerId);
-                    String orderId = "ORD-" + System.currentTimeMillis();
-                    Order order = new Order(orderId, customerId, dest);
-                    pendingOrders.offer(order);
-                    allOrders.put(orderId, order);
-                    System.out.println("[WAREHOUSE] New order: " + orderId +
-                            " for " + customerId);
-                }
-            } else { block(); }
-        }
+    private void spawnRandomOrder(){
+        if(liveOrders>=MAX_ACTIVE_ORDERS)
+            return;
+        double lat = LAT_MIN+ rng.nextDouble()*(LAT_MAX-LAT_MIN);
+        double lon= LON_MIN+rng.nextDouble()*(LON_MAX-LON_MIN);
+        String coords = String.format("%.4f,%.4f",lat,lon);
+        Location dest = new Location(lat,lon,coords);
+        String orderId ="ORD-" +(orderSeq++);
+        Order order = new Order(orderId,coords,dest);
+        pending.offer(order);
+        allOrders.put(orderId, order);
+        liveOrders++;
+        MapRegistry.addDeliveryPin(orderId, dest);
+        MapRegistry.addOrder(order);
+        MapRegistry.log("[NEW ORDER] "+orderId+ " →("+ coords +")");
+        System.out.println("[WAREHOUSE] new order "+orderId+" at (" +coords+ ")");
     }
-
-    private void dispatchNextOrder() {
-        Order order = pendingOrders.poll();
-        if (order == null) return;
+    private void dispatchNextOrder(){
+        Order order =pending.poll();
+        if(order==null)
+            return;
 
         DFAgentDescription template = new DFAgentDescription();
-        ServiceDescription sd = new ServiceDescription();
+        ServiceDescription sd =new ServiceDescription();
         sd.setType("delivery");
         template.addServices(sd);
-        try {
-            DFAgentDescription[] results = DFService.search(this, template);
-            if (results.length == 0) {
-                System.out.println("[WAREHOUSE] No delivery agents available!");
-                pendingOrders.offer(order); //requeue
+        try{
+            DFAgentDescription[] agents =DFService.search(this,template);
+            if(agents.length==0) {
+                System.out.println("[WAREHOUSE] No agents registered yet — requeueing "+order.getOrderId());
+                pending.offer(order);
                 return;
             }
-
-            ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-            for (DFAgentDescription r : results) {
-                cfp.addReceiver(r.getName());
-            }
-            cfp.setContent("JOB:" + order.getOrderId() + ":" +
-                    order.getDestination().getLatitude() + ":" +
-                    order.getDestination().getLongitude());
-            cfp.setConversationId("job-" + order.getOrderId());
+            ACLMessage cfp=new ACLMessage(ACLMessage.CFP);
+            for (DFAgentDescription a : agents)
+                cfp.addReceiver(a.getName());
+            cfp.setContent("JOB:"+order.getOrderId()+":"+order.getDestination().getLatitude()+":"+order.getDestination().getLongitude());
+            cfp.setConversationId("job-"+order.getOrderId());
             send(cfp);
-            System.out.println("[WAREHOUSE] CFP sent to " +
-                    results.length + " agents for " + order.getOrderId());
-
-            addBehaviour(new CollectProposalsBehaviour(order, results.length));
-        } catch (Exception e) { e.printStackTrace(); }
+            System.out.println("[WAREHOUSE] CFP for "+order.getOrderId()
+                    +" sent to "+ agents.length+" agents");
+            addBehaviour(new CollectProposalsBehaviour(order,agents.length));
+        } catch (Exception e){
+            e.printStackTrace();
+        }
     }
-
-    private class CollectProposalsBehaviour extends Behaviour {
+    //reply(PROPOSE or REFUSE) and picks the fastest bidder
+    private class CollectProposalsBehaviour extends Behaviour{
         private final Order order;
-        private final int expectedReplies;
-        private int repliesReceived = 0;
+        private final int expected;
+        private int received =0;
         private double bestTime = Double.MAX_VALUE;
-        private jade.core.AID bestAgent = null;
-        private final List<jade.core.AID> otherAgents = new ArrayList<>();
+        private jade.core.AID winner= null;
+        private final List<jade.core.AID> losers = new ArrayList<>();
 
-        CollectProposalsBehaviour(Order order, int expected) {
-            this.order = order;
-            this.expectedReplies = expected;
+        CollectProposalsBehaviour(Order order,int expected){
+            this.order=order;
+            this.expected=expected;
         }
 
         @Override
-        public void action() {
-            MessageTemplate mt = MessageTemplate.and(
-                    MessageTemplate.MatchPerformative(ACLMessage.PROPOSE),
-                    MessageTemplate.MatchConversationId("job-" + order.getOrderId()));
-            ACLMessage msg = myAgent.receive(mt);
-            if (msg != null) {
-                repliesReceived++;
-                String[] parts = msg.getContent().split(":");
-                double time = Double.parseDouble(parts[2]);
-                if (time < bestTime) {
-                    if (bestAgent != null) otherAgents.add(bestAgent);
-                    bestTime = time;
-                    bestAgent = msg.getSender();
-                } else {
-                    otherAgents.add(msg.getSender());
+        public void action(){
+            MessageTemplate mt=MessageTemplate.and(
+                    MessageTemplate.or(
+                            MessageTemplate.MatchPerformative(ACLMessage.PROPOSE),
+                            MessageTemplate.MatchPerformative(ACLMessage.REFUSE)),
+                    MessageTemplate.MatchConversationId("job-"+order.getOrderId()));
+
+            ACLMessage msg =myAgent.receive(mt);
+            if(msg !=null){
+                received++;
+                if(msg.getPerformative() == ACLMessage.PROPOSE){
+                    double time = Double.parseDouble(msg.getContent().split(":")[2]);
+                    if(time<bestTime){
+                        if (winner!=null)
+                            losers.add(winner);
+                        bestTime=time;
+                        winner = msg.getSender();
+                    }else{
+                        losers.add(msg.getSender());
+                    }
                 }
-            } else { block(500); }
+            }else{
+                block(400);
+            }
         }
 
+        @Override public boolean done() {
+            return received>=expected;
+        }
         @Override
-        public boolean done() { return repliesReceived >= expectedReplies; }
-
-        @Override
-        public int onEnd() {
-            if (bestAgent != null) {
-                ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
-                accept.addReceiver(bestAgent);
-                accept.setContent("ASSIGNED:" + order.getOrderId() + ":" +
-                        order.getDestination().getLatitude() + ":" +
-                        order.getDestination().getLongitude() + ":" +
-                        order.getCustomerId());
+        public int onEnd(){
+            if(winner != null){
+                ACLMessage accept=new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                accept.addReceiver(winner);
+                accept.setContent("ASSIGNED:"+order.getOrderId()+":"+order.getDestination().getLatitude()+":"+order.getDestination().getLongitude()+":"+order.getCustomerId());
                 myAgent.send(accept);
-                order.assign(bestAgent.getLocalName());
-                System.out.println("[WAREHOUSE] Assigned " + order.getOrderId() +
-                        " to " + bestAgent.getLocalName());
-                //reject
-                for (jade.core.AID other : otherAgents) {
-                    ACLMessage reject = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-                    reject.addReceiver(other);
-                    reject.setContent("REJECTED:" + order.getOrderId());
-                    myAgent.send(reject);
+                order.assign(winner.getLocalName());
+                MapRegistry.updateOrderStatus(order);
+                //"D1"=RED,"D2"=GREEN,"D3"=PURPLE
+                java.awt.Color pinColor=agentNameToColor(winner.getLocalName());
+                MapRegistry.updateDeliveryPinColor(order.getOrderId(),pinColor);
+                MapRegistry.log("[ASSIGNED] "+order.getOrderId()+"→ Agent "+winner.getLocalName()+" | waited "+order.getWaitTimeSeconds()+"s");
+                for(jade.core.AID loser:losers){
+                    ACLMessage rej = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+                    rej.addReceiver(loser);
+                    rej.setContent("REJECTED:"+order.getOrderId());
+                    myAgent.send(rej);
                 }
+            }else{
+                System.out.println("[WAREHOUSE]all agents busy,requeueing "+order.getOrderId());
+                pending.offer(order);
             }
             return 0;
         }
     }
-
-    private class ReceiveDeliveryConfirmation extends CyclicBehaviour {
+    private class ReceiveDeliveryConfirmation extends CyclicBehaviour{
         @Override
         public void action() {
-            MessageTemplate mt = MessageTemplate.and(
-                    MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-                    MessageTemplate.MatchContent("DELIVERED:"));
-            MessageTemplate mt2 = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
-            ACLMessage msg = myAgent.receive(mt2);
-            if (msg != null && msg.getContent().startsWith("DELIVERED:")) {
-                String[] p = msg.getContent().split(":");
-                String orderId = p[1];
-                Order order = allOrders.get(orderId);
-                if (order != null) {
+            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+            ACLMessage msg = myAgent.receive(mt);
+            if(msg != null && msg.getContent().startsWith("DELIVERED:")){
+                String orderId = msg.getContent().split(":")[1];
+                Order order=allOrders.get(orderId);
+                if(order!=null) {
                     order.markDelivered();
-                    deliveredCount++;
-                    System.out.println("[WAREHOUSE] Delivery confirmed: " + orderId +
-                            " | Total delivered: " + deliveredCount);
+                    totalDone++;
+                    liveOrders--;
+                    MapRegistry.removeDeliveryPin(orderId);
+                    MapRegistry.updateOrderStatus(order);
+                    MapRegistry.incrementDelivered();
+                    MapRegistry.log("[DELIVERED] "+orderId+" | total time: "+order.getTotalTimeSeconds()+"s");
+                    System.out.println("[WAREHOUSE] Order "+orderId +" confirmed delivered. Total: "+totalDone);
+
+                    addBehaviour(new WakerBehaviour(myAgent,ORDER_SPAWN_DELAY_MS){
+                        @Override protected void onWake(){
+                            spawnRandomOrder();
+                        }
+                    });
                 }
-            } else { block(); }
+            }else{
+                block();
+            }
         }
     }
 
+    private java.awt.Color agentNameToColor(String agentName){
+        return switch(agentName){
+            case "Delivery-1" -> java.awt.Color.RED;
+            case "Delivery-2" -> new java.awt.Color(0,200,80);   //geen
+            case "Delivery-3" -> new java.awt.Color(160,32,240); //purple
+            default -> java.awt.Color.WHITE;
+        };
+    }
+
     @Override
-    protected void takeDown() {
-        try { DFService.deregister(this); } catch (Exception e) {}
-        System.out.println("[WAREHOUSE] Agent terminated. Total deliveries: " +
-                deliveredCount);
+    protected void takeDown(){
+        try {
+            DFService.deregister(this);
+        }
+        catch (Exception e) {}
+        System.out.println("[WAREHOUSE] off .Completed deliveries: " + totalDone);
     }
 }
