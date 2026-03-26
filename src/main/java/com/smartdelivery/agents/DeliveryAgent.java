@@ -45,12 +45,14 @@ public class DeliveryAgent extends Agent {
                 new WaitForJob()
         );
     }
-    private java.awt.Color myColor(){
+    private java.awt.Color myColor() {
         return switch (color) {
-            case "RED"-> java.awt.Color.RED;
-            case "GREEN"->new java.awt.Color(0,200,80);
-            case "ORANGE"-> new java.awt.Color(160,32,240); // shows as purple
-            default-> java.awt.Color.CYAN;
+            case "RED"    -> java.awt.Color.RED;
+            case "GREEN"  -> new java.awt.Color(0, 200, 80);
+            case "ORANGE" -> new java.awt.Color(160, 32, 240);
+            case "CYAN"   -> java.awt.Color.CYAN;
+            case "YELLOW" -> new java.awt.Color(251, 191, 36);
+            default       -> java.awt.Color.WHITE;
         };
     }
     private class WaitForJob extends CyclicBehaviour{

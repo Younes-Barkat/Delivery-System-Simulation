@@ -64,7 +64,7 @@ public class SimulationWindow extends JFrame{
 
         deliveredLabel = statCard("0","Delivered",ACCENT_GREEN);
         activeLabel = statCard("0","Active",ACCENT_AMBER);
-        agentsLabel= statCard("3","Agents",ACCENT_BLUE);
+        agentsLabel= statCard("0","Agents",ACCENT_BLUE);
 
         statsRow.add(wrapStat(deliveredLabel,"Delivered",ACCENT_GREEN));
         statsRow.add(wrapStat(activeLabel,"Active",ACCENT_AMBER));
@@ -169,6 +169,10 @@ public class SimulationWindow extends JFrame{
     }
     public MapPanel getMapPanel() {
         return mapPanel;
+    }
+
+    public void setAgentCount(int n) {
+        SwingUtilities.invokeLater(() -> agentsLabel.setText(String.valueOf(n)));
     }
 
     private void tickTimers(){
