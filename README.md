@@ -4,7 +4,7 @@ A multi-agent delivery simulation built with **JADE** (Java Agent DEvelopment Fr
 
 Three autonomous delivery agents negotiate orders in real time using the **Contract Net Protocol**, drive along real road routes fetched from the OSRM routing engine, and report back to a central warehouse agent — all visualized on an interactive map with a live status dashboard.
 
-![Simulation Screenshot](screenshot.png)
+![Simulation Screenshot](Screenshot.png)
 
 ---
 
