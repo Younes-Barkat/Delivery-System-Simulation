@@ -21,7 +21,7 @@ public class WarehouseAgent extends Agent{
     private static final int ORDER_SPAWN_DELAY_MS = 6000;
     private static final int DISPATCH_TICK_MS     = 2500;
 
-    private int maxActiveOrders = 6; // overridden by constructor arg
+    private int maxOrders = 6;
 
     private final Queue<Order>pending=new LinkedList<>();
     private final Map<String, Order>allOrders =new HashMap<>();
@@ -33,14 +33,12 @@ public class WarehouseAgent extends Agent{
 
     @Override
     protected void setup() {
-        // pick up the max-orders config passed from Main
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
-            try { maxActiveOrders = Integer.parseInt(args[0].toString()); }
+            try { maxOrders = Integer.parseInt(args[0].toString()); }
             catch (NumberFormatException ignored) {}
         }
-        System.out.println("[WAREHOUSE] online at " + WAREHOUSE_LOCATION.getName()
-                + " | max orders: " + maxActiveOrders);
+        System.out.println("[WAREHOUSE] online | max orders: " + maxOrders);
         DFAgentDescription dfd =new DFAgentDescription();
         dfd.setName(getAID());
         ServiceDescription sd=new ServiceDescription();
@@ -62,14 +60,15 @@ public class WarehouseAgent extends Agent{
         addBehaviour(new WakerBehaviour(this,3000){
             @Override
             protected void onWake(){
-                for(int i=0; i<3; i++)
+                int initial = Math.min(3, maxOrders);
+                for (int i = 0; i < initial; i++)
                     spawnRandomOrder();
             }
         });
     }
 
     private void spawnRandomOrder(){
-        if (liveOrders >= maxActiveOrders)
+        if (liveOrders >= maxOrders)
             return;
         double lat = LAT_MIN+ rng.nextDouble()*(LAT_MAX-LAT_MIN);
         double lon= LON_MIN+rng.nextDouble()*(LON_MAX-LON_MIN);
