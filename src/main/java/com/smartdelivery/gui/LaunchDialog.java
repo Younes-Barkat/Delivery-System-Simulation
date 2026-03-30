@@ -52,13 +52,13 @@ public class LaunchDialog extends JDialog {
         root.setOpaque(false);
         root.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(EDGE, 1),
-                new EmptyBorder(32, 40, 32, 40)));
+                new EmptyBorder(32, 40, 36, 40)));
 
         root.add(header(),   BorderLayout.NORTH);
         root.add(body(),     BorderLayout.CENTER);
 
         setContentPane(root);
-        setSize(420, 480);
+        setSize(460, 560);
         setLocationRelativeTo(owner);
 
         Point[] grab = {null};
@@ -87,12 +87,12 @@ public class LaunchDialog extends JDialog {
 
         JLabel title = new JLabel("Smart Delivery System", SwingConstants.CENTER);
         title.setForeground(TEXT);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setAlignmentX(CENTER_ALIGNMENT);
 
         JLabel sub = new JLabel("M'sila  •  Agent-Based Simulation", SwingConstants.CENTER);
         sub.setForeground(MUTED);
-        sub.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        sub.setFont(new Font("Segoe UI", Font.BOLD, 13));
         sub.setAlignmentX(CENTER_ALIGNMENT);
 
         h.add(gem);
@@ -190,7 +190,7 @@ public class LaunchDialog extends JDialog {
         JButton plus = roundBtn("+");
 
         minus.addActionListener(e -> { if (orders > 1)  { orders--; orderNum.setText(String.valueOf(orders)); } });
-        plus.addActionListener(e  -> { if (orders < 30) { orders++; orderNum.setText(String.valueOf(orders)); } });
+        plus.addActionListener(e  -> { if (orders < 15) { orders++; orderNum.setText(String.valueOf(orders)); } });
 
         row.add(minus);
         row.add(orderNum);
@@ -223,8 +223,8 @@ public class LaunchDialog extends JDialog {
                 g2.dispose();
             }
         };
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btn.setPreferredSize(new Dimension(230, 44));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        btn.setPreferredSize(new Dimension(250, 48));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -242,7 +242,7 @@ public class LaunchDialog extends JDialog {
         p.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(EDGE, 1),
                 new EmptyBorder(16, 20, 16, 20)));
-        p.setMaximumSize(new Dimension(340, 200));
+        p.setMaximumSize(new Dimension(380, 220));
         p.setAlignmentX(CENTER_ALIGNMENT);
         return p;
     }
@@ -250,7 +250,7 @@ public class LaunchDialog extends JDialog {
     private JLabel tag(String txt) {
         JLabel l = new JLabel(txt, SwingConstants.CENTER);
         l.setForeground(MUTED);
-        l.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        l.setFont(new Font("Segoe UI", Font.BOLD, 12));
         l.setAlignmentX(CENTER_ALIGNMENT);
         return l;
     }
@@ -258,7 +258,7 @@ public class LaunchDialog extends JDialog {
     private JLabel dim(String txt) {
         JLabel l = new JLabel(txt, SwingConstants.CENTER);
         l.setForeground(MUTED);
-        l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        l.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         l.setAlignmentX(CENTER_ALIGNMENT);
         return l;
     }
