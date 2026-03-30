@@ -7,18 +7,15 @@ import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 
 public class LaunchDialog extends JDialog {
-
     public record Config(int agentCount, int maxOrders) {}
-
-    private static final Color BG     = new Color(10, 12, 20);
-    private static final Color PANEL  = new Color(18, 22, 36);
-    private static final Color CARD   = new Color(26, 32, 52);
-    private static final Color EDGE   = new Color(40, 55, 80);
-    private static final Color BLUE   = new Color(56, 189, 248);
-    private static final Color GREEN  = new Color(52, 211, 153);
-    private static final Color AMBER  = new Color(251, 191, 36);
-    private static final Color TEXT   = new Color(226, 232, 240);
-    private static final Color MUTED  = new Color(100, 116, 139);
+    private static final Color BG = new Color(10, 12, 20);
+    private static final Color CARD = new Color(26, 32, 52);
+    private static final Color EDGE = new Color(40, 55, 80);
+    private static final Color BLUE = new Color(56, 189, 248);
+    private static final Color GREEN = new Color(52, 211, 153);
+    private static final Color AMBER = new Color(251, 191, 36);
+    private static final Color TEXT = new Color(226, 232, 240);
+    private static final Color MUTED = new Color(100, 116, 139);
 
     private static final Color[] DOT_COLORS = {
             new Color(248, 113, 113),
@@ -26,185 +23,166 @@ public class LaunchDialog extends JDialog {
             GREEN,
             AMBER,
             new Color(167, 139, 250),
+            new Color(251, 113, 133),
+            new Color(34,  211, 238),
+            new Color(163, 230,  53),
+            new Color(249, 115,  22),
+            new Color(236,  72, 153),
     };
 
-    private Config result  = null;
-    private int    agents  = 3;
-    private int    orders  = 6;
-
-    private final JPanel dotRow   = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
-    private JLabel orderNum;
+    private Config result = null;
+    private int    agents = 3;
+    private int    orders = 6;
+    private final JPanel  dotRow  = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
+    private       JLabel  numLbl;
 
     public LaunchDialog(Frame owner) {
         super(owner, "Smart Delivery System", true);
         setUndecorated(true);
         setBackground(new Color(0, 0, 0, 0));
-
-        JPanel root = new JPanel(new BorderLayout(0, 0)) {
+        JPanel root = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(BG);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 16, 16));
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 18, 18));
                 g2.dispose();
             }
         };
+        root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
         root.setOpaque(false);
         root.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(EDGE, 1),
-                new EmptyBorder(32, 40, 36, 40)));
-
-        root.add(header(),   BorderLayout.NORTH);
-        root.add(body(),     BorderLayout.CENTER);
+                new EmptyBorder(30, 38, 30, 38)));
+        root.add(headerPanel());
+        root.add(Box.createVerticalStrut(20));
+        root.add(agentCard());
+        root.add(Box.createVerticalStrut(14));
+        root.add(ordersCard());
+        root.add(Box.createVerticalStrut(24));
+        root.add(startButton());
 
         setContentPane(root);
-        setSize(460, 560);
+        pack();
+        setMinimumSize(new Dimension(460,getHeight()));
         setLocationRelativeTo(owner);
 
         Point[] grab = {null};
-        root.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) { grab[0] = e.getPoint(); }
+        root.addMouseListener(new MouseAdapter(){
+            public void mousePressed(MouseEvent e){ grab[0] = e.getPoint(); }
         });
         root.addMouseMotionListener(new MouseMotionAdapter() {
-            public void mouseDragged(MouseEvent e) {
+            public void mouseDragged(MouseEvent e){
                 if (grab[0] == null) return;
-                Point p = getLocation();
-                setLocation(p.x + e.getX() - grab[0].x, p.y + e.getY() - grab[0].y);
+                Point loc = getLocation();
+                setLocation(loc.x + e.getX() - grab[0].x, loc.y + e.getY() - grab[0].y);
             }
         });
     }
 
-    private JPanel header() {
+    private JPanel headerPanel() {
         JPanel h = new JPanel();
         h.setLayout(new BoxLayout(h, BoxLayout.Y_AXIS));
         h.setOpaque(false);
-        h.setBorder(new EmptyBorder(0, 0, 24, 0));
-
         JLabel gem = new JLabel("◈", SwingConstants.CENTER);
         gem.setForeground(BLUE);
-        gem.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 34));
+        gem.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 36));
         gem.setAlignmentX(CENTER_ALIGNMENT);
-
         JLabel title = new JLabel("Smart Delivery System", SwingConstants.CENTER);
         title.setForeground(TEXT);
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setAlignmentX(CENTER_ALIGNMENT);
-
         JLabel sub = new JLabel("M'sila  •  Agent-Based Simulation", SwingConstants.CENTER);
         sub.setForeground(MUTED);
         sub.setFont(new Font("Segoe UI", Font.BOLD, 13));
         sub.setAlignmentX(CENTER_ALIGNMENT);
-
         h.add(gem);
-        h.add(Box.createVerticalStrut(8));
+        h.add(Box.createVerticalStrut(6));
         h.add(title);
-        h.add(Box.createVerticalStrut(4));
+        h.add(Box.createVerticalStrut(3));
         h.add(sub);
         return h;
     }
 
-    private JPanel body() {
-        JPanel b = new JPanel();
-        b.setLayout(new BoxLayout(b, BoxLayout.Y_AXIS));
-        b.setOpaque(false);
+    private JPanel agentCard() {
+        JPanel card = makeCard();
 
-        b.add(agentPicker());
-        b.add(Box.createVerticalStrut(16));
-        b.add(ordersPicker());
-        b.add(Box.createVerticalStrut(28));
-        b.add(startBtn());
-        return b;
-    }
-
-    private JPanel agentPicker() {
-        JPanel card = card();
-
-        JLabel label = tag("DELIVERY AGENTS");
-        JLabel hint  = dim("select how many agents are in the field");
+        JLabel title = cardTitle("DELIVERY AGENTS");
+        JLabel hint  = cardHint("select how many agents are in the field");
 
         dotRow.setOpaque(false);
         dotRow.setAlignmentX(CENTER_ALIGNMENT);
         rebuildDots();
 
-        card.add(label);
-        card.add(Box.createVerticalStrut(4));
+        card.add(title);
+        card.add(Box.createVerticalStrut(3));
         card.add(hint);
-        card.add(Box.createVerticalStrut(14));
+        card.add(Box.createVerticalStrut(12));
         card.add(dotRow);
         return card;
     }
 
     private void rebuildDots() {
         dotRow.removeAll();
-        for (int n = 1; n <= 5; n++) {
+        for (int n = 1; n <= 10; n++){
             final int v = n;
-            boolean on = (n == agents);
-
-            JLabel circle = new JLabel(on ? "●" : "○", SwingConstants.CENTER);
-            circle.setForeground(on ? DOT_COLORS[n - 1] : MUTED);
-            circle.setFont(new Font("Segoe UI Symbol", Font.PLAIN, on ? 32 : 26));
-            circle.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
-            circle.addMouseListener(new MouseAdapter() {
+            boolean selected = (n == agents);
+            JLabel dot = new JLabel(selected ? "●" : "○", SwingConstants.CENTER);
+            dot.setForeground(selected ? DOT_COLORS[n - 1] : MUTED);
+            dot.setFont(new Font("Segoe UI Symbol", Font.PLAIN, selected ? 28 : 22));
+            dot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            dot.addMouseListener(new MouseAdapter() {
                 public void mouseClicked(MouseEvent e) {
                     agents = v;
                     rebuildDots();
                     dotRow.revalidate();
                     dotRow.repaint();
                 }
-                public void mouseEntered(MouseEvent e) { circle.setForeground(DOT_COLORS[v - 1]); }
-                public void mouseExited(MouseEvent e)  { circle.setForeground(v == agents ? DOT_COLORS[v - 1] : MUTED); }
+                public void mouseEntered(MouseEvent e) { dot.setForeground(DOT_COLORS[v - 1]); }
+                public void mouseExited(MouseEvent e)  { dot.setForeground(v == agents ? DOT_COLORS[v - 1] : MUTED); }
             });
 
             JLabel num = new JLabel(String.valueOf(n), SwingConstants.CENTER);
-            num.setForeground(on ? TEXT : MUTED);
-            num.setFont(new Font("Consolas", Font.BOLD, 11));
+            num.setForeground(selected ? TEXT : MUTED);
+            num.setFont(new Font("Consolas", Font.BOLD, 10));
             num.setAlignmentX(CENTER_ALIGNMENT);
-            circle.setAlignmentX(CENTER_ALIGNMENT);
+            dot.setAlignmentX(CENTER_ALIGNMENT);
 
             JPanel col = new JPanel();
             col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
             col.setOpaque(false);
-            col.add(circle);
+            col.add(dot);
             col.add(num);
             dotRow.add(col);
         }
     }
-
-    private JPanel ordersPicker() {
-        JPanel card = card();
-
-        JLabel label = tag("MAX ACTIVE ORDERS");
-        JLabel hint  = dim("orders waiting or in transit at the same time");
-
+    private JPanel ordersCard() {
+        JPanel card = makeCard();
+        JLabel title = cardTitle("MAX ACTIVE ORDERS");
+        JLabel hint  = cardHint("orders waiting or in transit at the same time");
         JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 0));
         row.setOpaque(false);
         row.setAlignmentX(CENTER_ALIGNMENT);
-
-        JButton minus = roundBtn("−");
-        orderNum = new JLabel(String.valueOf(orders), SwingConstants.CENTER);
-        orderNum.setForeground(AMBER);
-        orderNum.setFont(new Font("Consolas", Font.BOLD, 30));
-        orderNum.setPreferredSize(new Dimension(52, 38));
-
-        JButton plus = roundBtn("+");
-
-        minus.addActionListener(e -> { if (orders > 1)  { orders--; orderNum.setText(String.valueOf(orders)); } });
-        plus.addActionListener(e  -> { if (orders < 15) { orders++; orderNum.setText(String.valueOf(orders)); } });
-
+        JButton minus = stepBtn("−");
+        numLbl = new JLabel(String.valueOf(orders), SwingConstants.CENTER);
+        numLbl.setForeground(AMBER);
+        numLbl.setFont(new Font("Consolas", Font.BOLD, 32));
+        numLbl.setPreferredSize(new Dimension(54, 40));
+        JButton plus = stepBtn("+");
+        minus.addActionListener(e -> { if (orders > 1)  { orders--; numLbl.setText(String.valueOf(orders)); } });
+        plus.addActionListener(e  -> { if (orders < 15) { orders++; numLbl.setText(String.valueOf(orders)); } });
         row.add(minus);
-        row.add(orderNum);
+        row.add(numLbl);
         row.add(plus);
-
-        card.add(label);
-        card.add(Box.createVerticalStrut(4));
+        card.add(title);
+        card.add(Box.createVerticalStrut(3));
         card.add(hint);
-        card.add(Box.createVerticalStrut(12));
+        card.add(Box.createVerticalStrut(10));
         card.add(row);
         return card;
     }
 
-    private JPanel startBtn() {
+    private JPanel startButton() {
         JPanel wrap = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         wrap.setOpaque(false);
 
@@ -214,17 +192,17 @@ public class LaunchDialog extends JDialog {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(getModel().isRollover() ? new Color(30, 180, 240) : BLUE);
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
-                g2.setColor(new Color(10, 12, 20));
+                g2.setColor(BG);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
-                int tx = (getWidth()  - fm.stringWidth(getText())) / 2;
-                int ty = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-                g2.drawString(getText(), tx, ty);
+                g2.drawString(getText(),
+                        (getWidth()  - fm.stringWidth(getText())) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
                 g2.dispose();
             }
         };
         btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        btn.setPreferredSize(new Dimension(250, 48));
+        btn.setPreferredSize(new Dimension(250, 46));
         btn.setBorderPainted(false);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);
@@ -235,19 +213,19 @@ public class LaunchDialog extends JDialog {
         return wrap;
     }
 
-    private JPanel card() {
+    private JPanel makeCard() {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
         p.setBackground(CARD);
         p.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(EDGE, 1),
-                new EmptyBorder(16, 20, 16, 20)));
-        p.setMaximumSize(new Dimension(380, 220));
+                new EmptyBorder(14, 18, 14, 18)));
         p.setAlignmentX(CENTER_ALIGNMENT);
+        p.setMaximumSize(new Dimension(400, 300));
         return p;
     }
 
-    private JLabel tag(String txt) {
+    private JLabel cardTitle(String txt) {
         JLabel l = new JLabel(txt, SwingConstants.CENTER);
         l.setForeground(MUTED);
         l.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -255,15 +233,15 @@ public class LaunchDialog extends JDialog {
         return l;
     }
 
-    private JLabel dim(String txt) {
+    private JLabel cardHint(String txt) {
         JLabel l = new JLabel(txt, SwingConstants.CENTER);
         l.setForeground(MUTED);
-        l.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         l.setAlignmentX(CENTER_ALIGNMENT);
         return l;
     }
 
-    private JButton roundBtn(String sym) {
+    private JButton stepBtn(String sym) {
         JButton b = new JButton(sym) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -273,9 +251,9 @@ public class LaunchDialog extends JDialog {
                 g2.setColor(getModel().isRollover() ? TEXT : MUTED);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
-                int tx = (getWidth()  - fm.stringWidth(getText())) / 2;
-                int ty = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-                g2.drawString(getText(), tx, ty);
+                g2.drawString(getText(),
+                        (getWidth()  - fm.stringWidth(getText())) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
                 g2.dispose();
             }
         };

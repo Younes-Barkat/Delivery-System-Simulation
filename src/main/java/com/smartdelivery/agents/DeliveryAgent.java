@@ -213,7 +213,6 @@ public class DeliveryAgent extends Agent {
             Thread.currentThread().interrupt();
         }
     }
-
     public Location getCurrentLocation(){
         return pos;
     }

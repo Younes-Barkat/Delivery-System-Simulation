@@ -45,7 +45,7 @@ public class SimulationWindow extends JFrame{
 
         JLabel title = new JLabel("Smart Delivery System |Agent-Based Simulation |M'sila, Algeria");
         title.setForeground(TEXT_PRIMARY);
-        title.setFont(new Font("Segoe UI", Font.BOLD,15));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 17));
         titleBar.add(title, BorderLayout.WEST);
         add(titleBar, BorderLayout.NORTH);
 
@@ -108,7 +108,7 @@ public class SimulationWindow extends JFrame{
         logArea.setEditable(false);
         logArea.setBackground(new Color(12,16,28));
         logArea.setForeground(new Color(148,163, 184));
-        logArea.setFont(new Font("Consolas", Font.PLAIN, 11));
+        logArea.setFont(new Font("Consolas", Font.PLAIN, 12));
         logArea.setLineWrap(true);
         logArea.setWrapStyleWord(true);
         logArea.setBorder(new EmptyBorder(6, 6, 6, 6));
@@ -208,7 +208,7 @@ public class SimulationWindow extends JFrame{
     private void styleTable(JTable table){
         table.setBackground(BG_CARD);
         table.setForeground(TEXT_PRIMARY);
-        table.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        table.setFont(new Font("Segoe UI", Font.BOLD, 15));
         table.setRowHeight(34);
         table.setShowGrid(false);
         table.setIntercellSpacing(new Dimension(0,2));
@@ -218,7 +218,7 @@ public class SimulationWindow extends JFrame{
         JTableHeader header =table.getTableHeader();
         header.setBackground(BG_HEADER);
         header.setForeground(TEXT_DIM);
-        header.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
         header.setPreferredSize(new Dimension(0, 30));
         header.setBorder(BorderFactory.createEmptyBorder());
 
@@ -230,13 +230,13 @@ public class SimulationWindow extends JFrame{
         boldCenter.setHorizontalAlignment(SwingConstants.CENTER);
         boldCenter.setBackground(BG_CARD);
         boldCenter.setForeground(ACCENT_BLUE);
-        boldCenter.setFont(new Font("Consolas", Font.BOLD, 14));
+        boldCenter.setFont(new Font("Consolas", Font.BOLD, 15));
         table.getColumnModel().getColumn(0).setCellRenderer(boldCenter);
         DefaultTableCellRenderer agentRenderer = new DefaultTableCellRenderer();
         agentRenderer.setHorizontalAlignment(SwingConstants.CENTER);
         agentRenderer.setBackground(BG_CARD);
         agentRenderer.setForeground(new Color(226, 232, 240));
-        agentRenderer.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        agentRenderer.setFont(new Font("Segoe UI", Font.BOLD, 14));
         table.getColumnModel().getColumn(1).setCellRenderer(agentRenderer);
 
         table.getColumnModel().getColumn(2).setCellRenderer(new DefaultTableCellRenderer(){
@@ -244,7 +244,7 @@ public class SimulationWindow extends JFrame{
             public Component getTableCellRendererComponent(JTable t, Object val,boolean sel,boolean focus,int row,int col){
                 super.getTableCellRendererComponent(t,val,sel, focus,row,col);
                 setHorizontalAlignment(SwingConstants.CENTER);
-                setFont(new Font("Segoe UI", Font.BOLD,12));
+                setFont(new Font("Segoe UI", Font.BOLD, 13));
                 String s =val == null ? "":val.toString();
                 if(s.contains("PENDING")){ setForeground(ACCENT_AMBER);setBackground(new Color(40,35,15));}
                 else if(s.contains("ASSIGNED")) { setForeground(ACCENT_BLUE);setBackground(new Color(15, 30, 50));}
@@ -267,7 +267,7 @@ public class SimulationWindow extends JFrame{
     private JLabel statCard(String value,String label,Color accent){
         JLabel lbl =new JLabel(value, SwingConstants.CENTER);
         lbl.setForeground(accent);
-        lbl.setFont(new Font("Segoe UI",Font.BOLD,26));
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 28));
         return lbl;
     }
 
@@ -280,7 +280,7 @@ public class SimulationWindow extends JFrame{
 
         JLabel cap= new JLabel(caption, SwingConstants.CENTER);
         cap.setForeground(TEXT_DIM);
-        cap.setFont(new Font("Segoe UI", Font.PLAIN,10));
+        cap.setFont(new Font("Segoe UI", Font.PLAIN, 11));
 
         card.add(valueLabel,BorderLayout.CENTER);
         card.add(cap, BorderLayout.SOUTH);
@@ -318,7 +318,7 @@ public class SimulationWindow extends JFrame{
     private JLabel sectionLabel(String text){
         JLabel lbl = new JLabel(text);
         lbl.setForeground(TEXT_DIM);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD,10));
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lbl.setAlignmentX(0f);
         return lbl;
     }
