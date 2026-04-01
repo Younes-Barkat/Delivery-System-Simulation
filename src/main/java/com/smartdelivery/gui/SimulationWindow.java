@@ -112,7 +112,6 @@ public class SimulationWindow extends JFrame{
         logArea.setLineWrap(true);
         logArea.setWrapStyleWord(true);
         logArea.setBorder(new EmptyBorder(6, 6, 6, 6));
-
         JScrollPane logScroll= new JScrollPane(logArea);
         logScroll.setBackground(new Color(12,16,28));
         logScroll.setBorder(BorderFactory.createLineBorder(new Color(40,55,80),1));

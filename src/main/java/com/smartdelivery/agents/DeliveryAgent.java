@@ -60,17 +60,17 @@ public class DeliveryAgent extends Agent {
         public void action(){
             ACLMessage cfp=myAgent.receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
             if(cfp != null){
-                if (free){
-                    String[] p =cfp.getContent().split(":");
-                    String oid =p[1];
-                    Location dst=new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), "dst");
-                    double eta=(WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst) / SPEED) * 3600.0;
-                    ACLMessage bid = cfp.createReply();
+                if(free){
+                    String[] p=cfp.getContent().split(":");
+                    String oid=p[1];
+                    Location dst=new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]),"dst");
+                    double eta=(WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst)/SPEED)*3600.0;
+                    ACLMessage bid=cfp.createReply();
                     bid.setPerformative(ACLMessage.PROPOSE);
                     bid.setContent("BID:"+getLocalName()+":"+eta);
                     bid.setConversationId(cfp.getConversationId());
                     send(bid);
-                    System.out.println("["+getLocalName()+"]bid for "+oid);
+                    System.out.println("["+getLocalName()+"] bid for "+oid);
                 }else{
                     ACLMessage no=cfp.createReply();
                     no.setPerformative(ACLMessage.REFUSE);
@@ -78,19 +78,21 @@ public class DeliveryAgent extends Agent {
                     send(no);
                 }
             }
-
-            MessageTemplate mt = MessageTemplate.or(
+            MessageTemplate mt=MessageTemplate.or(
                     MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
                     MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL));
-            ACLMessage reply =myAgent.receive(mt);
-            if(reply != null && reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL){
-                free =false;
-                String[] p = reply.getContent().split(":");
-                String oid =p[1];
-                Location dst = new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]), p[4]);
-                addBehaviour(new GoDeliver(oid,dst));
+            ACLMessage reply=myAgent.receive(mt);
+            if(reply!=null){
+                if(reply.getPerformative()==ACLMessage.ACCEPT_PROPOSAL && free){
+                    free=false;
+                    String[] p=reply.getContent().split(":");
+                    String oid=p[1];
+                    Location dst=new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]),p[4]);
+                    myAgent.removeBehaviour(this);
+                    myAgent.addBehaviour(new GoDeliver(oid,dst));
+                }
             }
-            if(cfp == null && reply== null) block();
+            if(cfp==null && reply==null) block();
         }
     }
 
@@ -163,12 +165,13 @@ public class DeliveryAgent extends Agent {
                 MapRegistry.updateAgent(getLocalName(), pos, "Returning...", myColor());
                 sleep();
             }else{
-                pos= WarehouseAgent.WAREHOUSE_LOCATION;
-                free = true;
-                MapRegistry.updateAgent(getLocalName(), pos,"Idle",myColor());
+                pos=WarehouseAgent.WAREHOUSE_LOCATION;
+                free=true;
+                MapRegistry.updateAgent(getLocalName(),pos,"Idle",myColor());
                 MapRegistry.updateAgentRoute(getLocalName(),null);
-                MapRegistry.log("[AGENT] "+getLocalName()+ " back at warehouse");
+                MapRegistry.log("[AGENT] "+getLocalName()+" back at warehouse");
                 over=true;
+                myAgent.addBehaviour(new WaitForJob());
             }
         }
 
