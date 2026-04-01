@@ -90,9 +90,9 @@ public class LaunchDialog extends JDialog {
         gem.setAlignmentX(CENTER_ALIGNMENT);
         JLabel title = new JLabel("Smart Delivery System", SwingConstants.CENTER);
         title.setForeground(TEXT);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        title.setFont(new Font("Segoe UI",Font.BOLD,26));
         title.setAlignmentX(CENTER_ALIGNMENT);
-        JLabel sub = new JLabel("M'sila  •  Agent-Based Simulation", SwingConstants.CENTER);
+        JLabel sub = new JLabel("M'sila  •  Agent-Based Simulation",SwingConstants.CENTER);
         sub.setForeground(MUTED);
         sub.setFont(new Font("Segoe UI", Font.BOLD, 13));
         sub.setAlignmentX(CENTER_ALIGNMENT);
@@ -106,14 +106,11 @@ public class LaunchDialog extends JDialog {
 
     private JPanel agentCard() {
         JPanel card = makeCard();
-
-        JLabel title = cardTitle("DELIVERY AGENTS");
-        JLabel hint  = cardHint("select how many agents are in the field");
-
+        JLabel title =cardTitle("DELIVERY AGENTS");
+        JLabel hint=cardHint("select how many agents are in the field");
         dotRow.setOpaque(false);
         dotRow.setAlignmentX(CENTER_ALIGNMENT);
         rebuildDots();
-
         card.add(title);
         card.add(Box.createVerticalStrut(3));
         card.add(hint);
@@ -127,24 +124,28 @@ public class LaunchDialog extends JDialog {
         for (int n = 1; n <= 10; n++){
             final int v = n;
             boolean selected = (n == agents);
-            JLabel dot = new JLabel(selected ? "●" : "○", SwingConstants.CENTER);
+            JLabel dot = new JLabel(selected ? "●":"○", SwingConstants.CENTER);
             dot.setForeground(selected ? DOT_COLORS[n - 1] : MUTED);
-            dot.setFont(new Font("Segoe UI Symbol", Font.PLAIN, selected ? 28 : 22));
+            dot.setFont(new Font("Segoe UI Symbol", Font.PLAIN, selected ? 28:22));
             dot.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            dot.addMouseListener(new MouseAdapter() {
+            dot.addMouseListener(new MouseAdapter(){
                 public void mouseClicked(MouseEvent e) {
                     agents = v;
                     rebuildDots();
                     dotRow.revalidate();
                     dotRow.repaint();
                 }
-                public void mouseEntered(MouseEvent e) { dot.setForeground(DOT_COLORS[v - 1]); }
-                public void mouseExited(MouseEvent e)  { dot.setForeground(v == agents ? DOT_COLORS[v - 1] : MUTED); }
+                public void mouseEntered(MouseEvent e){
+                    dot.setForeground(DOT_COLORS[v - 1]);
+                }
+                public void mouseExited(MouseEvent e) {
+                    dot.setForeground(v ==agents ? DOT_COLORS[v - 1]:MUTED);
+                }
             });
 
             JLabel num = new JLabel(String.valueOf(n), SwingConstants.CENTER);
-            num.setForeground(selected ? TEXT : MUTED);
-            num.setFont(new Font("Consolas", Font.BOLD, 10));
+            num.setForeground(selected ? TEXT :MUTED);
+            num.setFont(new Font("Consolas", Font.BOLD,10));
             num.setAlignmentX(CENTER_ALIGNMENT);
             dot.setAlignmentX(CENTER_ALIGNMENT);
 
@@ -160,7 +161,7 @@ public class LaunchDialog extends JDialog {
         JPanel card = makeCard();
         JLabel title = cardTitle("MAX ACTIVE ORDERS");
         JLabel hint  = cardHint("orders waiting or in transit at the same time");
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 0));
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 16,0));
         row.setOpaque(false);
         row.setAlignmentX(CENTER_ALIGNMENT);
         JButton minus = stepBtn("−");
@@ -169,8 +170,18 @@ public class LaunchDialog extends JDialog {
         numLbl.setFont(new Font("Consolas", Font.BOLD, 32));
         numLbl.setPreferredSize(new Dimension(54, 40));
         JButton plus = stepBtn("+");
-        minus.addActionListener(e -> { if (orders > 1)  { orders--; numLbl.setText(String.valueOf(orders)); } });
-        plus.addActionListener(e  -> { if (orders < 15) { orders++; numLbl.setText(String.valueOf(orders)); } });
+        minus.addActionListener(e ->{ if(orders>1){
+            orders--;
+            numLbl.setText(String.valueOf(orders));
+        }
+        }
+        );
+        plus.addActionListener(e->{ if(orders<15){
+            orders++;
+            numLbl.setText(String.valueOf(orders));
+        }
+        }
+        );
         row.add(minus);
         row.add(numLbl);
         row.add(plus);
@@ -181,7 +192,6 @@ public class LaunchDialog extends JDialog {
         card.add(row);
         return card;
     }
-
     private JPanel startButton() {
         JPanel wrap = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         wrap.setOpaque(false);
@@ -191,12 +201,12 @@ public class LaunchDialog extends JDialog {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(getModel().isRollover() ? new Color(30, 180, 240) : BLUE);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
+                g2.fill(new RoundRectangle2D.Float(0,0,getWidth(),getHeight(),10, 10));
                 g2.setColor(BG);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(getText(),
-                        (getWidth()  - fm.stringWidth(getText())) / 2,
+                        (getWidth()-fm.stringWidth(getText())) / 2,
                         (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
                 g2.dispose();
             }
@@ -219,9 +229,9 @@ public class LaunchDialog extends JDialog {
         p.setBackground(CARD);
         p.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(EDGE, 1),
-                new EmptyBorder(14, 18, 14, 18)));
+                new EmptyBorder(14, 18, 14,18)));
         p.setAlignmentX(CENTER_ALIGNMENT);
-        p.setMaximumSize(new Dimension(400, 300));
+        p.setMaximumSize(new Dimension(400,300));
         return p;
     }
 
@@ -234,7 +244,7 @@ public class LaunchDialog extends JDialog {
     }
 
     private JLabel cardHint(String txt) {
-        JLabel l = new JLabel(txt, SwingConstants.CENTER);
+        JLabel l = new JLabel(txt,SwingConstants.CENTER);
         l.setForeground(MUTED);
         l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         l.setAlignmentX(CENTER_ALIGNMENT);
@@ -246,26 +256,25 @@ public class LaunchDialog extends JDialog {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? EDGE : new Color(35, 45, 70));
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 8, 8));
+                g2.setColor(getModel().isRollover() ? EDGE :new Color(35, 45, 70));
+                g2.fill(new RoundRectangle2D.Float(0,0, getWidth(), getHeight(), 8, 8));
                 g2.setColor(getModel().isRollover() ? TEXT : MUTED);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(getText(),
-                        (getWidth()  - fm.stringWidth(getText())) / 2,
-                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                        (getWidth()- fm.stringWidth(getText())) /2,
+                        (getHeight() + fm.getAscent() -fm.getDescent()) / 2);
                 g2.dispose();
             }
         };
         b.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        b.setPreferredSize(new Dimension(36, 36));
+        b.setPreferredSize(new Dimension(36,36));
         b.setBorderPainted(false);
         b.setContentAreaFilled(false);
         b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
     }
-
     public static Config show(Frame owner) {
         LaunchDialog d = new LaunchDialog(owner);
         d.setVisible(true);

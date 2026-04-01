@@ -28,7 +28,7 @@ public class MapPanel extends JPanel{
             color=col;
         }
     }
-//fixed warehouse
+    //fixed warehouse
     private static final GeoPosition WAREHOUSE_POS=new GeoPosition(35.7069,4.5428);
 
     private static class AgentMarker{
@@ -125,26 +125,19 @@ public class MapPanel extends JPanel{
 
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT,8,4));
         controls.setBackground(new Color(10, 12, 20));
-
-        JLabel info2 = new JLabel("Author: Younes Barkat");
-        info2.setForeground(new Color(71,85,105));
-        info2.setFont(new Font("Impact",Font.PLAIN,11));
         JButton zIn = darkButton("+");
         JButton zOut = darkButton("−");
         zIn.addActionListener(e-> mapViewer.setZoom(Math.max(0,mapViewer.getZoom()-1)));
         zOut.addActionListener(e-> mapViewer.setZoom(Math.min(17,mapViewer.getZoom()+1)));
-        controls.add(info2);
         controls.add(zIn);
         controls.add(zOut);
         add(controls, BorderLayout.SOUTH);
     }
-
     public synchronized void updateAgentPosition(String id,Location loc,String status, Color color){
         agentMarkers.put(id, new AgentMarker(
                 new GeoPosition(loc.getLatitude(),loc.getLongitude()),status,color));
         SwingUtilities.invokeLater(mapViewer::repaint);
     }
-
     public synchronized void updateAgentRoute(String id,List<GeoPosition> route){
         if(route !=null)
             agentRoutes.put(id, route);
@@ -154,7 +147,7 @@ public class MapPanel extends JPanel{
     public synchronized void addDeliveryPin(String orderId, Location loc) {
         deliveryPins.put(orderId, new DeliveryPin(
                 new GeoPosition(loc.getLatitude(),loc.getLongitude()),
-                new Color(251, 191, 36)));
+                new Color(251,191,36)));
         SwingUtilities.invokeLater(mapViewer::repaint);
     }
 
@@ -272,10 +265,9 @@ public class MapPanel extends JPanel{
                 int[] py={y-10,y-10,y};
                 g.setColor(pinColor);
                 g.fillPolygon(px, py,3);
-
                 g.setFont(new Font("Impact",Font.BOLD,14));
                 g.setColor(new Color(0, 0, 0, 150));
-                g.drawString(e.getKey().replace("ORD-","#"),x + 13,y -15);
+                g.drawString(e.getKey().replace("ORD-","#"),x + 13,y-15);
                 g.setColor(pinColor);
                 g.drawString(e.getKey().replace("ORD-","#"),x + 12,y -16);
             }
@@ -283,7 +275,7 @@ public class MapPanel extends JPanel{
         }
     }
 
-//dots
+    //dots
     private class AgentPainter implements Painter<JXMapViewer>{
         @Override
         public void paint(Graphics2D g,JXMapViewer map,int w,int h){
@@ -318,7 +310,7 @@ public class MapPanel extends JPanel{
         }
     }
 
-//wh
+    //wh
     private class WarehousePainter implements Painter<JXMapViewer>{
         @Override
         public void paint(Graphics2D g,JXMapViewer map,int w,int h) {
@@ -331,37 +323,31 @@ public class MapPanel extends JPanel{
             int y =(int)(pt.getY()-bounds.getY());
 
             Color  blue = new Color(0, 97, 255);
-            //rings
             g.setColor(new Color(0, 182, 255, 109));
             g.setStroke(new BasicStroke(1f));
             g.drawOval(x-28,y-28,56,56);
-            g.drawOval(x-40,y -40,80, 80);
+            g.drawOval(x-40,y-40,80, 80);
 
-            //filled box
-            g.setColor(new Color(1, 172, 251, 207));
-            g.fillRoundRect(x-16, y -16, 32,32, 6,6);
-
+            g.setColor(new Color(1,172, 251, 207));
+            g.fillRoundRect(x-16,y -16,32,32,6,6);
             g.setColor(blue);
             g.setStroke(new BasicStroke(2f));
             g.drawRoundRect(x - 16, y - 16, 32, 32, 6, 6);
-
             g.setFont(new Font("Impact", Font.BOLD, 14));
             g.setColor(blue);
             g.drawString("WH", x - 12, y + 6);
-
             g.setFont(new Font("Impact",Font.PLAIN,11));
-            g.setColor(new Color(55, 123, 228));
-            g.drawString("WAREHOUSE",x -24, y+28);
-
+            g.setColor(new Color(55, 123,228));
+            g.drawString("WAREHOUSE",x -24,y+28);
             g.dispose();
         }
     }
 
     private JPanel buildLegendPanel(){
-        Color bg = new Color(12, 16,28,210);
-        Color border  =new Color(50,65,95);
-        Color dimText =new Color(100,116,139);
-        Color white   =new Color(220,230,245);
+        Color bg =new Color(12,16,28,210);
+        Color border =new Color(50,65,95);
+        Color dimText=new Color(100,116,139);
+        Color white=new Color(220,230,245);
 
         JPanel panel = new JPanel(){
             @Override
@@ -386,13 +372,13 @@ public class MapPanel extends JPanel{
         panel.add(title);
         panel.add(Box.createVerticalStrut(8));
 
-        Object[][] entries ={
-                { new Color(56,189,248),"Warehouse" },
+        Object[][] entries={
+                { new Color(56,189,248),"Warehouse"},
                 { Color.RED,"Agent 1 (D1)"},
-                { new Color(0, 200, 80),"Agent 2 (D2)"},
-                { new Color(160, 32, 240),"Agent 3 (D3)"},
-                { new Color(251, 191, 36),"Pin: waiting (yellow)"},
-                { new Color(220, 38, 38),"Pin: assigned (agent color)"},
+                { new Color(0,200,80),"Agent 2 (D2)"},
+                { new Color(160,32, 240),"Agent 3 (D3)"},
+                { new Color(251,191, 36),"Pin: waiting (yellow)"},
+                { new Color(220,38, 38),"Pin: assigned (agent color)"},
         };
         for(Object[] entry : entries){
             JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT,6,0));
@@ -412,15 +398,14 @@ public class MapPanel extends JPanel{
         panel.setPreferredSize(new Dimension(175,150));
         return panel;
     }
-
     private static JButton darkButton(String text){
         JButton btn=new JButton(text);
-        btn.setBackground(new Color(26, 32,52));
-        btn.setForeground(new Color(148, 163, 184));
-        btn.setFont(new Font("Segoe UI", Font.BOLD,15));
+        btn.setBackground(new Color(26,32,52));
+        btn.setForeground(new Color(148,163,184));
+        btn.setFont(new Font("Segoe UI",Font.BOLD,18));
         btn.setBorder(BorderFactory.createLineBorder(new Color(55,65,90),1));
         btn.setFocusPainted(false);
-        btn.setPreferredSize(new Dimension(30,24));
+        btn.setPreferredSize(new Dimension(42,32));
         return btn;
     }
 }

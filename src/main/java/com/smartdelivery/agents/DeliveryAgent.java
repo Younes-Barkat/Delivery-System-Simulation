@@ -47,11 +47,16 @@ public class DeliveryAgent extends Agent {
     }
     private java.awt.Color myColor() {
         return switch (color) {
-            case "RED"    -> java.awt.Color.RED;
-            case "GREEN"  -> new java.awt.Color(0, 200, 80);
-            case "ORANGE" -> new java.awt.Color(160, 32, 240);
-            case "CYAN"   -> java.awt.Color.CYAN;
+            case "RED"    -> new java.awt.Color(239, 68,  68);
+            case "GREEN"  -> new java.awt.Color(0,   200, 80);
+            case "ORANGE" -> new java.awt.Color(160, 32,  240);
+            case "CYAN"   -> new java.awt.Color(34,  211, 238);
             case "YELLOW" -> new java.awt.Color(251, 191, 36);
+            case "PINK"   -> new java.awt.Color(236, 72,  153);
+            case "LIME"   -> new java.awt.Color(132, 204, 22);
+            case "SKY"    -> new java.awt.Color(56,  189, 248);
+            case "CORAL"  -> new java.awt.Color(251, 113, 133);
+            case "MINT"   -> new java.awt.Color(52,  211, 153);
             default       -> java.awt.Color.WHITE;
         };
     }
@@ -60,17 +65,17 @@ public class DeliveryAgent extends Agent {
         public void action(){
             ACLMessage cfp=myAgent.receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
             if(cfp != null){
-                if(free){
-                    String[] p=cfp.getContent().split(":");
-                    String oid=p[1];
-                    Location dst=new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]),"dst");
-                    double eta=(WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst)/SPEED)*3600.0;
-                    ACLMessage bid=cfp.createReply();
+                if (free){
+                    String[] p =cfp.getContent().split(":");
+                    String oid =p[1];
+                    Location dst=new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), "dst");
+                    double eta=(WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst) / SPEED) * 3600.0;
+                    ACLMessage bid = cfp.createReply();
                     bid.setPerformative(ACLMessage.PROPOSE);
                     bid.setContent("BID:"+getLocalName()+":"+eta);
                     bid.setConversationId(cfp.getConversationId());
                     send(bid);
-                    System.out.println("["+getLocalName()+"] bid for "+oid);
+                    System.out.println("["+getLocalName()+"]bid for "+oid);
                 }else{
                     ACLMessage no=cfp.createReply();
                     no.setPerformative(ACLMessage.REFUSE);
@@ -78,21 +83,19 @@ public class DeliveryAgent extends Agent {
                     send(no);
                 }
             }
-            MessageTemplate mt=MessageTemplate.or(
+
+            MessageTemplate mt = MessageTemplate.or(
                     MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
                     MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL));
-            ACLMessage reply=myAgent.receive(mt);
-            if(reply!=null){
-                if(reply.getPerformative()==ACLMessage.ACCEPT_PROPOSAL && free){
-                    free=false;
-                    String[] p=reply.getContent().split(":");
-                    String oid=p[1];
-                    Location dst=new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]),p[4]);
-                    myAgent.removeBehaviour(this);
-                    myAgent.addBehaviour(new GoDeliver(oid,dst));
-                }
+            ACLMessage reply =myAgent.receive(mt);
+            if(reply != null && reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL){
+                free =false;
+                String[] p = reply.getContent().split(":");
+                String oid =p[1];
+                Location dst = new Location(Double.parseDouble(p[2]),Double.parseDouble(p[3]), p[4]);
+                addBehaviour(new GoDeliver(oid,dst));
             }
-            if(cfp==null && reply==null) block();
+            if(cfp == null && reply== null) block();
         }
     }
 
@@ -165,13 +168,12 @@ public class DeliveryAgent extends Agent {
                 MapRegistry.updateAgent(getLocalName(), pos, "Returning...", myColor());
                 sleep();
             }else{
-                pos=WarehouseAgent.WAREHOUSE_LOCATION;
-                free=true;
-                MapRegistry.updateAgent(getLocalName(),pos,"Idle",myColor());
+                pos= WarehouseAgent.WAREHOUSE_LOCATION;
+                free = true;
+                MapRegistry.updateAgent(getLocalName(), pos,"Idle",myColor());
                 MapRegistry.updateAgentRoute(getLocalName(),null);
-                MapRegistry.log("[AGENT] "+getLocalName()+" back at warehouse");
+                MapRegistry.log("[AGENT] "+getLocalName()+ " back at warehouse");
                 over=true;
-                myAgent.addBehaviour(new WaitForJob());
             }
         }
 
