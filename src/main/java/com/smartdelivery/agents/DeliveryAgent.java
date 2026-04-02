@@ -23,8 +23,7 @@ public class DeliveryAgent extends Agent {
     @Override
     protected void setup() {
         pos=WarehouseAgent.WAREHOUSE_LOCATION;
-        color=getArguments() !=null && getArguments().length >0
-                ? getArguments()[0].toString() :"BLUE";
+        color=getArguments() !=null && getArguments().length >0 ? getArguments()[0].toString():"BLUE";
 
         MapRegistry.updateAgent(getLocalName(),pos,"Idle",myColor());
         MapRegistry.log("[AGENT] "+ getLocalName() +" ready at warehouse");
@@ -47,17 +46,17 @@ public class DeliveryAgent extends Agent {
     }
     private java.awt.Color myColor() {
         return switch (color) {
-            case "RED"    -> new java.awt.Color(239, 68,  68);
-            case "GREEN"  -> new java.awt.Color(0,   200, 80);
-            case "ORANGE" -> new java.awt.Color(160, 32,  240);
-            case "CYAN"   -> new java.awt.Color(34,  211, 238);
-            case "YELLOW" -> new java.awt.Color(251, 191, 36);
-            case "PINK"   -> new java.awt.Color(236, 72,  153);
-            case "LIME"   -> new java.awt.Color(132, 204, 22);
-            case "SKY"    -> new java.awt.Color(56,  189, 248);
-            case "CORAL"  -> new java.awt.Color(251, 113, 133);
-            case "MINT"   -> new java.awt.Color(52,  211, 153);
-            default       -> java.awt.Color.WHITE;
+            case "RED"-> new java.awt.Color(239,68,68);
+            case "GREEN"-> new java.awt.Color(0, 200,80);
+            case "ORANGE"-> new java.awt.Color(160,32, 240);
+            case "CYAN"-> new java.awt.Color(34,211, 238);
+            case "YELLOW"-> new java.awt.Color(251, 191, 36);
+            case "PINK"-> new java.awt.Color(236, 72,153);
+            case "LIME"-> new java.awt.Color(132, 204,22);
+            case "SKY"-> new java.awt.Color(56,189, 248);
+            case "CORAL"-> new java.awt.Color(251,113,133);
+            case "MINT" -> new java.awt.Color(52,211,153);
+            default  -> java.awt.Color.WHITE;
         };
     }
     private class WaitForJob extends CyclicBehaviour{

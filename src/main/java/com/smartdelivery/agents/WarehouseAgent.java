@@ -106,8 +106,7 @@ public class WarehouseAgent extends Agent {
             cfp.setContent("JOB:" + order.getOrderId() +":"+order.getDestination().getLatitude() +":"+ order.getDestination().getLongitude());
             cfp.setConversationId("job-" + order.getOrderId());
             send(cfp);
-
-            addBehaviour(new CollectBids(order, agents.length));
+            addBehaviour(new CollectBids(order,agents.length));
         } catch (Exception e) { e.printStackTrace(); }
     }
 
@@ -116,11 +115,11 @@ public class WarehouseAgent extends Agent {
         private final int expected;
         private int  received = 0;
         private double best= Double.MAX_VALUE;
-        private jade.core.AID winner  = null;
+        private jade.core.AID winner= null;
         private final List<jade.core.AID> losers = new ArrayList<>();
 
         CollectBids(Order order, int expected) {
-            this.order = order;
+            this.order =order;
             this.expected = expected;
         }
 
@@ -128,9 +127,8 @@ public class WarehouseAgent extends Agent {
         public void action() {
             MessageTemplate mt = MessageTemplate.and(
                     MessageTemplate.or(MessageTemplate.MatchPerformative(ACLMessage.PROPOSE), MessageTemplate.MatchPerformative(ACLMessage.REFUSE)), MessageTemplate.MatchConversationId("job-" + order.getOrderId()));
-
-            ACLMessage msg = myAgent.receive(mt);
-            if(msg != null) {
+            ACLMessage msg=myAgent.receive(mt);
+            if(msg !=null){
                 received++;
                 if (msg.getPerformative()==ACLMessage.PROPOSE){
                     double t = Double.parseDouble(msg.getContent().split(":")[2]);
@@ -166,7 +164,7 @@ public class WarehouseAgent extends Agent {
                     rej.setContent("REJECTED:"+order.getOrderId());
                     myAgent.send(rej);
                 }
-            } else {
+            } else{
                 pending.offer(order);
             }
             return 0;
@@ -175,10 +173,10 @@ public class WarehouseAgent extends Agent {
 
     private class ReceiveDeliveryConfirmation extends CyclicBehaviour {
         @Override
-        public void action() {
+        public void action(){
             MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
             ACLMessage msg = myAgent.receive(mt);
-            if(msg != null && msg.getContent().startsWith("DELIVERED:")){
+            if(msg !=null && msg.getContent().startsWith("DELIVERED:")){
                 String id = msg.getContent().split(":")[1];
                 Order  order = allOrders.get(id);
                 if(order !=null) {
@@ -187,7 +185,7 @@ public class WarehouseAgent extends Agent {
                     live--;
                     MapRegistry.removeDeliveryPin(id);
                     MapRegistry.updateOrderStatus(order);
-                    MapRegistry.incrementDelivered();
+                    MapRegistry.recordDelivery(order);
                     MapRegistry.log("[DELIVERED] "+id +" | time: " + order.getTotalTimeSeconds()+"s");
                     System.out.println("[WAREHOUSE] delivered " +id+" live="+live+"/"+maxOrders);
                 }
@@ -201,7 +199,7 @@ public class WarehouseAgent extends Agent {
         return switch (name){
             case "Delivery-1"-> new java.awt.Color(239, 68,  68);
             case "Delivery-2"-> new java.awt.Color(0,200, 80);
-            case "Delivery-3"-> new java.awt.Color(160,32, 240);
+            case "Delivery-3"-> new java.awt.Color(160,32,240);
             case "Delivery-4"-> new java.awt.Color(34,211, 238);
             case "Delivery-5"-> new java.awt.Color(249,115,22);
             case "Delivery-6"-> new java.awt.Color(236, 72,153);

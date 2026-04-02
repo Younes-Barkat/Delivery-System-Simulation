@@ -187,7 +187,6 @@ public class MapPanel extends JPanel{
                     sb.append(line);
             }
             String json = sb.toString();
-
             int idx =json.indexOf("\"coordinates\":[");
             if (idx <0) return null;
             int start =json.indexOf("[[",idx);
@@ -195,7 +194,7 @@ public class MapPanel extends JPanel{
             String raw= json.substring(start,end);
 
             List<GeoPosition> pts = new ArrayList<>();
-            for (String pt : raw.replace("[[","").replace("]]","").split("\\],\\[")){
+            for(String pt : raw.replace("[[","").replace("]]","").split("\\],\\[")){
                 String[] xy=pt.split(",");
                 if(xy.length>=2){
                     double lon=Double.parseDouble(xy[0].trim());
@@ -212,7 +211,7 @@ public class MapPanel extends JPanel{
     //painters
     private class RoutePainter implements Painter<JXMapViewer>{
         @Override
-        public void paint(Graphics2D g,JXMapViewer map,int w, int h){
+        public void paint(Graphics2D g,JXMapViewer map,int w,int h){
             g =(Graphics2D) g.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
             Rectangle bounds=map.getViewportBounds();
@@ -293,12 +292,10 @@ public class MapPanel extends JPanel{
                 g.fillOval(x-26, y-26,52,52);
                 //
                 g.setColor(new Color(m.color.getRed(), m.color.getGreen(), m.color.getBlue(), 210));
-                g.fillOval(x - 15, y - 15, 30, 30);
-
+                g.fillOval(x - 15,y -15, 30,30);
                 g.setColor(m.color);
                 g.setStroke(new BasicStroke(2.5f));
                 g.drawOval(x -15, y -15,30,30);
-
                 String label =e.getKey().replace("Delivery-", "D");
                 g.setFont(new Font("Impact", Font.BOLD, 16));
                 g.setColor(new Color(0,0,0,160)); //shadow

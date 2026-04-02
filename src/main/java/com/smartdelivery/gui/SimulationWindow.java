@@ -3,7 +3,10 @@ package com.smartdelivery.gui;
 import com.smartdelivery.model.Order;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.awt.geom.RoundRectangle2D;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
@@ -11,10 +14,10 @@ import javax.swing.table.DefaultTableCellRenderer;
 import java.util.Map;
 
 public class SimulationWindow extends JFrame{
-    private static final Color BG_DARKEST = new Color(10, 12,20);// bg
-    private static final Color BG_DARK= new Color(18, 22,36);  //panel bg
-    private static final Color BG_CARD = new Color(26,32,52);  //table row
-    private static final Color BG_HEADER = new Color(15,19,32); //tb header
+    private static final Color BG_DARKEST = new Color(10, 12,20);
+    private static final Color BG_DARK= new Color(18, 22,36);
+    private static final Color BG_CARD = new Color(26,32,52);
+    private static final Color BG_HEADER = new Color(15,19,32);
     private static final Color ACCENT_BLUE = new Color(56,189,248);
     private static final Color ACCENT_GREEN= new Color(52,211,153);
     private static final Color ACCENT_RED = new Color(248,113,113);
@@ -27,10 +30,18 @@ public class SimulationWindow extends JFrame{
     private final JLabel activeLabel;
     private final JLabel agentsLabel;
 
-    private final DefaultTableModel  tableModel;
-    private final Map<String, Integer>rows= new LinkedHashMap<>();
-    private int done= 0;
+    private final DefaultTableModel tableModel;
+    private final Map<String, Integer> rows = new LinkedHashMap<>();
+    private int done   = 0;
     private int active = 0;
+
+    private final long startTime = System.currentTimeMillis();
+    private double totalWait     = 0;
+    private double totalDelivery = 0;
+    private long   fastest       = Long.MAX_VALUE;
+    private long   slowest       = -1;
+    private int    numAgents     = 0;
+    private final Map<String, Integer> agentScores = new LinkedHashMap<>();
 
     public SimulationWindow(){
         super("Smart Delivery System -M'sila-");
@@ -47,6 +58,32 @@ public class SimulationWindow extends JFrame{
         title.setForeground(TEXT_PRIMARY);
         title.setFont(new Font("Segoe UI", Font.BOLD, 17));
         titleBar.add(title, BorderLayout.WEST);
+
+        JButton stopBtn = new JButton("■  END SIMULATION") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Color base = new Color(180, 30, 50);
+                g2.setColor(getModel().isRollover() ? new Color(220, 50, 70) : base);
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 8, 8));
+                g2.setColor(new Color(255, 200, 200));
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(getText(),
+                        (getWidth() - fm.stringWidth(getText())) / 2,
+                        (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
+                g2.dispose();
+            }
+        };
+        stopBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        stopBtn.setPreferredSize(new Dimension(160, 30));
+        stopBtn.setBorderPainted(false);
+        stopBtn.setContentAreaFilled(false);
+        stopBtn.setFocusPainted(false);
+        stopBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        stopBtn.addActionListener(e -> showSummary());
+        titleBar.add(stopBtn, BorderLayout.EAST);
+
         add(titleBar, BorderLayout.NORTH);
 
         mapPanel=new MapPanel();
@@ -146,8 +183,8 @@ public class SimulationWindow extends JFrame{
                 return;
             String agentLabel=order.getAssignedAgent() !=null
                     ? order.getAssignedAgent().replace("Delivery-","D"):"—";
-            tableModel.setValueAt(agentLabel,row, 1);
-            tableModel.setValueAt(statusLabel(order.getStatus()), row,2);
+            tableModel.setValueAt(agentLabel,row,1);
+            tableModel.setValueAt(statusLabel(order.getStatus()),row,2);
         });
     }
     public void incrementDelivered(){
@@ -159,6 +196,25 @@ public class SimulationWindow extends JFrame{
         });
     }
 
+    public void recordDelivery(Order order) {
+        long wait = order.getWaitTimeSeconds();
+        long total= order.getTotalTimeSeconds();
+        String agent= order.getAssignedAgent();
+
+        if(wait>=0)
+            totalWait+= wait;
+        if(total>=0)
+            totalDelivery += total;
+        if(total>=0 && total <fastest)
+            fastest =total;
+        if(total>slowest)
+            slowest = total;
+        if(agent!=null)
+            agentScores.merge(agent,1,Integer::sum);
+
+        incrementDelivered();
+    }
+
     public void log(String message){
         String time =new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date());
         SwingUtilities.invokeLater(()->{
@@ -166,12 +222,15 @@ public class SimulationWindow extends JFrame{
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
     }
-    public MapPanel getMapPanel() {
+    public MapPanel getMapPanel(){
         return mapPanel;
     }
 
-    public void setAgentCount(int n) {
-        SwingUtilities.invokeLater(() -> agentsLabel.setText(String.valueOf(n)));
+    public void setAgentCount(int n){
+        numAgents = n;
+        for (int i=1; i<=n;i++)
+            agentScores.put("Delivery-"+i,0);
+        SwingUtilities.invokeLater(() ->agentsLabel.setText(String.valueOf(n)));
     }
 
     private void tickTimers(){
@@ -279,16 +338,15 @@ public class SimulationWindow extends JFrame{
 
         JLabel cap= new JLabel(caption, SwingConstants.CENTER);
         cap.setForeground(TEXT_DIM);
-        cap.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-
+        cap.setFont(new Font("Segoe UI",Font.PLAIN, 11));
         card.add(valueLabel,BorderLayout.CENTER);
         card.add(cap, BorderLayout.SOUTH);
         return card;
     }
 
     private void styleScrollBar(JScrollBar bar){
-        bar.setBackground(new Color(18, 22,36));
-        bar.setForeground(new Color(18, 22,36));
+        bar.setBackground(new Color(18,22,36));
+        bar.setForeground(new Color(18,22,36));
         bar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI(){
             @Override
             protected void configureScrollBarColors(){
@@ -320,6 +378,21 @@ public class SimulationWindow extends JFrame{
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lbl.setAlignmentX(0f);
         return lbl;
+    }
+
+    private void showSummary() {
+        long elapsed = (System.currentTimeMillis()-startTime)/1000;
+        double avgWait = done > 0 ? totalWait / done :-1;
+        double avgDelivery = done > 0 ? totalDelivery/done:-1;
+        long fast = fastest == Long.MAX_VALUE ? -1 : fastest;
+
+        List<String> names = new ArrayList<>(agentScores.keySet());
+        List<Integer> scores = new ArrayList<>(agentScores.values());
+
+        SummaryDialog.Stats stats = new SummaryDialog.Stats(
+                done,numAgents,active+done,elapsed,avgWait,avgDelivery,fast,slowest,names,scores
+        );
+        SummaryDialog.show(this,stats);
     }
 
     private JPanel legendRow(Color dotColor, String text){

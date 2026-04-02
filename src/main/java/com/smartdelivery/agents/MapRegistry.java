@@ -31,13 +31,15 @@ public class MapRegistry{
     public static void addOrder(Order o){
         if(win !=null)win.addOrder(o);
     }
-    public static void updateOrderStatus(Order o){
-        if(win != null)win.updateOrderStatus(o);
+    public static void updateOrderStatus(Order o){if(win != null)win.updateOrderStatus(o);
     }
     public static void log(String msg) {
         if(win != null) win.log(msg);
     }
     public static void incrementDelivered(){
         if (win!=null) win.incrementDelivered();
+    }
+    public static void recordDelivery(Order o){
+        if (win!=null) win.recordDelivery(o);
     }
 }
