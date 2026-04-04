@@ -1,77 +1,104 @@
 # Smart Delivery System — Agent-Based Simulation
 
-A multi-agent delivery simulation built with **JADE** (Java Agent DEvelopment Framework) and **JXMapViewer2**, running on a live OpenStreetMap of M'sila, Algeria.
+A multi-agent delivery simulation built with **JADE** and **JXMapViewer2**, running on a live OpenStreetMap of M'sila, Algeria.
 
-Three autonomous delivery agents negotiate orders in real time using the **Contract Net Protocol**, drive along real road routes fetched from the OSRM routing engine, and report back to a central warehouse agent — all visualized on an interactive map with a live status dashboard.
+Before the simulation starts, you pick how many agents you want (up to 10) and how many orders should be active at once (up to 15). Then you watch them negotiate, drive along real roads, and compete for deliveries — all on a live map with a dark-mode dashboard.
 
-![Simulation Screenshot](Screenshot.png)
+![Simulation Screenshot](screenshot.png)
+
+---
+
+## What it does
+
+Agents are autonomous — they register themselves, listen for job offers, calculate their own bids, drive their own routes, and report back when done. The warehouse never tells anyone where to go. It just announces jobs and picks whoever bids lowest.
+
+The whole coordination mechanism is the **Contract Net Protocol**: warehouse broadcasts a call for proposals, agents bid with their estimated travel time, the closest available agent wins, everyone else gets rejected. Simple rule, decent results.
+
+```
+Warehouse ──[ CFP ]──────────────► D1, D2, D3...
+          ◄──[ PROPOSE: 97s  ]──── D2 (free, closer)
+          ◄──[ PROPOSE: 142s ]──── D1 (free, farther)
+          ◄──[ REFUSE: BUSY  ]──── D3 (busy)
+          ──[ ACCEPT ]──────────► D2
+          ──[ REJECT ]──────────► D1
+          ◄──[ INFORM: DONE  ]──── D2 (after delivery)
+```
+
+Routes come from the free **OSRM** public API — real streets, real turns. If the API is unreachable, agents fall back to a straight-line approximation and keep going.
 
 ---
 
 ## Features
 
-- **Live OSM map** — real tiles of M'sila, draggable and zoomable
-- **3 autonomous agents** (red, green, purple) — each an independent JADE agent running in its own thread
-- **Contract Net Protocol** — warehouse broadcasts CFPs, agents bid based on estimated travel time, winner is selected automatically
-- **Real road routing** — routes fetched from the free OSRM API (`router.project-osrm.org`), with straight-line fallback when offline
-- **Animated movement** — agents move along waypoints at 30 km/h simulated speed
-- **Dynamic order pins** — yellow when waiting, switches to the assigned agent's color when picked up
-- **Live side panel** — order table with status, assigned agent, and elapsed time (stops counting when delivered)
-- **Dark mode UI** — color-coded status cells, dark scrollbars, stats strip
+- **1 to 10 delivery agents** — each gets a unique color, configurable before launch
+- **1 to 15 concurrent orders** — the warehouse fills slots automatically via a background ticker
+- **Live OpenStreetMap** of M'sila — draggable, zoomable, real tiles
+- **Real road routing** via OSRM, with offline fallback
+- **Color-coded pins** — yellow while waiting, switches to the agent's color when picked up
+- **Dark mode dashboard** — live order table, event log, stats strip (delivered / active / agents)
+- **Order timer** — counts up per row, freezes automatically when delivered
+- **End-of-simulation summary** — total deliveries, avg wait time, fastest/slowest delivery, agent leaderboard with progress bars
+- **Launch dialog** — configure agents and order count before each run
 
 ---
 
-## Architecture
+## Project structure
 
 ```
-Main.java
-├── SimulationWindow      ← Swing GUI (map + side panel)
-│   └── MapPanel          ← JXMapViewer + custom painters
-├── WarehouseAgent        ← JADE agent: generates orders, runs CNP
-├── DeliveryAgent (×3)    ← JADE agent: bids, drives, delivers
-├── MapRegistry           ← static bridge: agent threads → Swing EDT
+src/main/java/com/smartdelivery/
+├── Main.java
+├── agents/
+│   ├── WarehouseAgent.java      generates orders, runs Contract Net
+│   ├── DeliveryAgent.java       bids, drives, delivers, returns
+│   └── MapRegistry.java         thread-safe bridge between JADE and Swing
+├── gui/
+│   ├── LaunchDialog.java        pre-simulation config screen
+│   ├── SimulationWindow.java    main window — map + side panel + stats
+│   ├── MapPanel.java            JXMapViewer + 4 custom painters
+│   └── SummaryDialog.java       end-of-simulation analytics
 └── model/
-    ├── Order             ← lifecycle: PENDING → ASSIGNED → IN_TRANSIT → DELIVERED
-    └── Location          ← lat/lon + haversine distance
-```
-
-### Agent Interaction (Contract Net Protocol)
-
-```
-Warehouse ──CFP──────────────► Agent 1, 2, 3
-          ◄──PROPOSE (bid)──── Agent 1 (free)
-          ◄──PROPOSE (bid)──── Agent 2 (free)
-          ◄──REFUSE (busy)──── Agent 3
-          ──ACCEPT_PROPOSAL──► Agent 2 (lowest bid)
-          ──REJECT_PROPOSAL──► Agent 1
-          ◄──INFORM (done)──── Agent 2
+    ├── Order.java               PENDING → ASSIGNED → IN_TRANSIT → DELIVERED
+    └── Location.java            lat/lon + haversine distance
 ```
 
 ---
 
-## Tech Stack
+## How agents are built
 
-| Component | Technology |
-|-----------|-----------|
-| Agent framework | JADE 4.5.0 |
-| Map rendering | JXMapViewer2 2.6 |
-| Map tiles | OpenStreetMap |
-| Road routing | OSRM (free public API) |
-| GUI | Java Swing |
-| Build | Maven |
-| Java | JDK 21 |
+Each delivery agent runs three JADE behaviours in sequence:
+
+**WaitForJob** (CyclicBehaviour) — listens forever for CFPs. If free, calculates ETA and bids. If busy, refuses. Only calls `block()` when genuinely idle — this is important, blocking while delivering would stall the movement loop.
+
+**GoDeliver** (Behaviour) — fetches the OSRM route on first call, then walks along waypoints one step at a time at 250ms per step. Finishes when it reaches the destination.
+
+**GoBack** (Behaviour) — same idea, but drives back to the warehouse. Sets `free = true` when it arrives so the agent can take the next job.
+
+The warehouse uses two TickerBehaviours simultaneously — one dispatches pending orders every 2.5 seconds, the other fills empty order slots every 1.5 seconds. A WakerBehaviour delays the first spawn by 3 seconds so agents have time to register before the CFPs start flying.
 
 ---
 
-## Getting Started
+## Agent colors
 
-### Prerequisites
+10 agents, 10 colors. Consistent across the map dot, route line, delivery pin, and summary leaderboard.
 
-- JDK 21+
-- Maven 3.8+
-- Internet connection (for OSM tiles and OSRM routing — simulation still works offline with straight-line fallback)
+| Agent | Color |
+|---|---|
+| Delivery-1 | Red |
+| Delivery-2 | Green |
+| Delivery-3 | Purple |
+| Delivery-4 | Cyan |
+| Delivery-5 | Orange |
+| Delivery-6 | Pink |
+| Delivery-7 | Lime |
+| Delivery-8 | Sky Blue |
+| Delivery-9 | Coral |
+| Delivery-10 | Mint |
 
-### Run
+---
+
+## Getting started
+
+You need JDK 21+ and Maven. An internet connection is recommended (for map tiles and OSRM routing) but not required — it degrades gracefully offline.
 
 ```bash
 git clone https://github.com/Younes-Barkat/Delivery-System-Simulation.git
@@ -80,7 +107,9 @@ mvn clean package
 mvn exec:java -Dexec.mainClass="com.smartdelivery.Main"
 ```
 
-### `pom.xml` dependencies
+A launch dialog appears first. Pick your agent count and order limit, then hit Start.
+
+### Maven dependencies
 
 ```xml
 <repositories>
@@ -111,64 +140,68 @@ mvn exec:java -Dexec.mainClass="com.smartdelivery.Main"
 
 ---
 
-## Project Structure
+## Map controls
 
-```
-src/main/java/com/smartdelivery/
-├── Main.java
-├── agents/
-│   ├── WarehouseAgent.java
-│   ├── DeliveryAgent.java
-│   └── MapRegistry.java
-├── gui/
-│   ├── MapPanel.java
-│   └── SimulationWindow.java
-└── model/
-    ├── Location.java
-    └── Order.java
-```
-
----
-
-## How It Works
-
-1. **Startup** — warehouse registers in the JADE Yellow Pages, then waits 3 seconds for all delivery agents to boot and register
-2. **Order generation** — warehouse spawns 3 random orders at startup (max 6 active at once), then replaces each delivered order after a 6-second cooldown
-3. **Dispatch** — every 2.5 seconds, the warehouse polls the pending queue and broadcasts a CFP to all registered delivery agents
-4. **Bidding** — each free agent calculates its estimated travel time and replies with a PROPOSE; busy agents send REFUSE
-5. **Assignment** — warehouse picks the lowest bid, sends ACCEPT to the winner and REJECT to the rest
-6. **Delivery** — winning agent fetches a road route from OSRM, walks along the waypoints at 250ms per step, then notifies the warehouse on arrival
-7. **Return** — agent drives back to the warehouse along the return route and marks itself available again
-
----
-
-## Map Controls
-
-| Action | Control |
-|--------|---------|
+| Action | How |
+|---|---|
 | Pan | Click and drag |
-| Zoom in/out | Mouse scroll wheel |
-| Reset view | Buttons in floating legend |
+| Zoom | Mouse scroll wheel |
+| Zoom buttons | `+` / `−` in the bottom-left corner |
 
 ---
 
-## Simulation Parameters
+## Tunable parameters
 
-| Parameter | Value | Location |
-|-----------|-------|----------|
-| Max active orders | 6 | `WarehouseAgent.java` |
-| Agent speed | 30 km/h | `DeliveryAgent.java` |
-| Waypoint step delay | 250 ms | `DeliveryAgent.java` |
-| Order respawn delay | 6 s | `WarehouseAgent.java` |
-| Dispatch tick | 2.5 s | `WarehouseAgent.java` |
-| City bounding box | 35.685–35.740 N, 4.505–4.580 E | `WarehouseAgent.java` |
+Most things that affect simulation behavior are constants at the top of their respective files. Easy to find and change.
+
+| What | Default | Where |
+|---|---|---|
+| Agent speed | 30 km/h | `DeliveryAgent.SPEED` |
+| Step delay (visual speed) | 250 ms | `DeliveryAgent.STEP` |
+| Dispatch interval | 2500 ms | `WarehouseAgent.TICK` |
+| Order fill interval | 1500 ms | `WarehouseAgent` |
+| Post-delivery spawn delay | 6000 ms | `WarehouseAgent.SPAWN_DELAY` |
+| M'sila bounding box | 35.685–35.740 N, 4.505–4.580 E | `WarehouseAgent` |
+
+Max agents and max orders are set at runtime via the launch dialog.
 
 ---
 
-## Author
+## A note on bugs that were fixed
 
-**Younes Barkat**
-GitHub: [@Younes-Barkat](https://github.com/Younes-Barkat)
+A few non-obvious issues came up during development that are worth documenting in case anyone extends this:
+
+**Duplicate order IDs** — using `System.currentTimeMillis() % 10000` caused ID collisions when multiple orders spawned in the same millisecond. Fixed by using a simple `int seq` counter instead.
+
+**Agent taking two orders at once** — the ACCEPT handler didn't check `free` before accepting, so a stale ACCEPT message from a previous bid cycle could be picked up while already delivering. Fixed by adding `&& free` to the guard condition.
+
+**Agents not moving after assignment** — `WaitForJob` was calling `block()` unconditionally, which suspended the JADE thread and prevented `GoDeliver` from being scheduled. Fixed by making `block()` conditional on `free`.
+
+**GUI flickering** — agents were touching Swing components from JADE background threads. Fixed by wrapping all repaint calls in `SwingUtilities.invokeLater()` inside `MapPanel` and `SimulationWindow`.
+
+---
+
+## Tech stack
+
+| | |
+|---|---|
+| Agent framework | JADE 4.5.0 |
+| Map rendering | JXMapViewer2 2.6 |
+| Map tiles | OpenStreetMap |
+| Road routing | OSRM (public free API) |
+| GUI | Java Swing |
+| Build | Maven |
+| Java | JDK 21 |
+
+---
+
+## Authors
+
+Barkat Younes — [@Younes-Barkat](https://github.com/Younes-Barkat)
+Benkhelil Mohamed El Amin
+Rashwane Attoui
+
+Under the supervision of **Dr. Meliouh Amel** — M'sila University, Department of Computer Science
 
 ---
 
