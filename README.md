@@ -4,7 +4,7 @@ A multi-agent delivery simulation built with **JADE** and **JXMapViewer2**, runn
 
 Before the simulation starts, you pick how many agents you want (up to 10) and how many orders should be active at once (up to 15). Then you watch them negotiate, drive along real roads, and compete for deliveries — all on a live map with a dark-mode dashboard.
 
-![Simulation Screenshot](screenshot.png)
+![Simulation Screenshot](Screenshot.png)
 
 ---
 
