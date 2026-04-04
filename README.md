@@ -199,7 +199,7 @@ A few non-obvious issues came up during development that are worth documenting i
 
 Barkat Younes — [@Younes-Barkat](https://github.com/Younes-Barkat)
 Benkhelil Mohamed El Amin
-Rashwane Attoui
+Attoui Radhwane
 
 Under the supervision of **Dr. Meliouh Amel** — M'sila University, Department of Computer Science
 
