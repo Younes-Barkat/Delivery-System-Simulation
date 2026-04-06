@@ -39,15 +39,15 @@ public class SimulationWindow extends JFrame {
     private int done   = 0;
     private int active = 0;
 
-    private final long   startTime    = System.currentTimeMillis();
-    private double totalWait          = 0;
-    private double totalDelivery      = 0;
-    private long   fastest            = Long.MAX_VALUE;
-    private long   slowest            = -1;
-    private int    numAgents          = 0;
-    private double totalEarnings      = 0;
+    private final long   startTime = System.currentTimeMillis();
+    private double totalWait = 0;
+    private double totalDelivery  = 0;
+    private long fastest   = Long.MAX_VALUE;
+    private long slowest= -1;
+    private int numAgents = 0;
+    private double totalEarnings = 0;
     private final Map<String, Integer> agentScores   = new LinkedHashMap<>();
-    private final Map<String, Double>  agentTrust    = new LinkedHashMap<>();
+    private final Map<String, Double>  agentTrust = new LinkedHashMap<>();
     private final Map<String, Double>  agentEarnings = new LinkedHashMap<>();
     private double highestPrice = -1;
     private double lowestPrice  = Double.MAX_VALUE;
@@ -111,14 +111,14 @@ public class SimulationWindow extends JFrame {
         statsRow.setBackground(BG_DARK);
 
         deliveredLabel = statCard("0", "Delivered", ACCENT_GREEN);
-        activeLabel    = statCard("0", "Active",    ACCENT_AMBER);
-        agentsLabel    = statCard("0", "Agents",    ACCENT_BLUE);
-        earningsLabel  = statCard("0", "DZD",       ACCENT_PURPLE);
+        activeLabel    = statCard("0", "Active", ACCENT_AMBER);
+        agentsLabel    = statCard("0", "Agents",ACCENT_BLUE);
+        earningsLabel  = statCard("0", "DZD", ACCENT_PURPLE);
 
         statsRow.add(wrapStat(deliveredLabel, "Delivered", ACCENT_GREEN));
-        statsRow.add(wrapStat(activeLabel,    "Active",    ACCENT_AMBER));
-        statsRow.add(wrapStat(agentsLabel,    "Agents",    ACCENT_BLUE));
-        statsRow.add(wrapStat(earningsLabel,  "Earnings",  ACCENT_PURPLE));
+        statsRow.add(wrapStat(activeLabel,"Active", ACCENT_AMBER));
+        statsRow.add(wrapStat(agentsLabel,"Agents",ACCENT_BLUE));
+        statsRow.add(wrapStat(earningsLabel,"Earnings",  ACCENT_PURPLE));
         right.add(statsRow);
         right.add(Box.createVerticalStrut(14));
 
@@ -373,10 +373,10 @@ public class SimulationWindow extends JFrame {
 
     private String statusLabel(Order.Status status) {
         return switch (status) {
-            case PENDING    -> "[ PENDING ]";
-            case ASSIGNED   -> "[ ASSIGNED ]";
+            case PENDING -> "[ PENDING ]";
+            case ASSIGNED -> "[ ASSIGNED ]";
             case IN_TRANSIT -> "[ EN ROUTE ]";
-            case DELIVERED  -> "[ DONE ]";
+            case DELIVERED -> "[ DONE ]";
         };
     }
 
