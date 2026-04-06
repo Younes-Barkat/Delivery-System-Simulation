@@ -11,7 +11,6 @@ import java.util.List;
 public class MapRegistry {
     private static MapPanel map;
     private static SimulationWindow win;
-
     public static void setMapPanel(MapPanel m) { map = m; }
     public static void setWindow(SimulationWindow w) { win = w; }
 
