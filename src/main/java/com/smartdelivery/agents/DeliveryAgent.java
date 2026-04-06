@@ -20,15 +20,16 @@ public class DeliveryAgent extends Agent {
     private static final double RATE_PER_KM = 10.0;
 
     private Location pos;
-    private boolean free = true;
-    private String color;
-    private int trust_level = 100;
-    private boolean returning = false;
+    private boolean  free  = true;
+    private String   color;
+    private int      trust_level = 100;
 
     @Override
     protected void setup() {
         pos = WarehouseAgent.WAREHOUSE_LOCATION;
-        color = getArguments() != null && getArguments().length > 0 ? getArguments()[0].toString() : "BLUE";
+        color = getArguments() != null && getArguments().length > 0
+                ? getArguments()[0].toString() : "BLUE";
+
         MapRegistry.updateAgent(getLocalName(), pos, "Idle", myColor());
         MapRegistry.log("[AGENT] " + getLocalName() + " ready at warehouse");
 
@@ -38,41 +39,35 @@ public class DeliveryAgent extends Agent {
         sd.setType("delivery");
         sd.setName("Delivery-" + getLocalName());
         dfd.addServices(sd);
-        try {
-            DFService.register(this, dfd);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        try { DFService.register(this, dfd); }
+        catch (Exception e) { e.printStackTrace(); }
+
         addBehaviour(new WaitForJob());
     }
 
     private java.awt.Color myColor() {
         return switch (color) {
-            case "RED" -> new java.awt.Color(239, 68, 68);
-            case "GREEN" -> new java.awt.Color(0, 200, 80);
+            case "RED"    -> new java.awt.Color(239, 68, 68);
+            case "GREEN"  -> new java.awt.Color(0, 200, 80);
             case "ORANGE" -> new java.awt.Color(160, 32, 240);
-            case "CYAN" -> new java.awt.Color(34, 211, 238);
+            case "CYAN"   -> new java.awt.Color(34, 211, 238);
             case "YELLOW" -> new java.awt.Color(251, 191, 36);
-            case "PINK" -> new java.awt.Color(236, 72, 153);
-            case "LIME" -> new java.awt.Color(132, 204, 22);
-            case "SKY" -> new java.awt.Color(56, 189, 248);
-            case "CORAL" -> new java.awt.Color(251, 113, 133);
-            case "MINT" -> new java.awt.Color(52, 211, 153);
-            default -> java.awt.Color.WHITE;
+            case "PINK"   -> new java.awt.Color(236, 72, 153);
+            case "LIME"   -> new java.awt.Color(132, 204, 22);
+            case "SKY"    -> new java.awt.Color(56, 189, 248);
+            case "CORAL"  -> new java.awt.Color(251, 113, 133);
+            case "MINT"   -> new java.awt.Color(52, 211, 153);
+            default       -> java.awt.Color.WHITE;
         };
     }
 
-    private double effectiveDistance(Location dst) {
-        if (returning) {
-            double backToWarehouse = pos.distanceTo(WarehouseAgent.WAREHOUSE_LOCATION);
-            return backToWarehouse + WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
-        }
-        return WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
+    private double calcBidPrice(double distKm) {
+        // lower trust → higher effective price → less likely to win
+        return (BASE_FEE + distKm * RATE_PER_KM) * (100.0 / trust_level);
     }
 
-    private double calcBidPrice(double distKm) {
-        double base = BASE_FEE + (distKm * RATE_PER_KM);
-        return base * (trust_level / 100.0);
+    private double calcEtaMinutes(double distKm) {
+        return (distKm / SPEED) * 60.0;
     }
 
     private class WaitForJob extends CyclicBehaviour {
@@ -80,19 +75,19 @@ public class DeliveryAgent extends Agent {
         public void action() {
             ACLMessage cfp = myAgent.receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
             if (cfp != null) {
-                if (free || returning) {
-                    String[] p = cfp.getContent().split(":");
-                    String oid = p[1];
+                // only bid when truly free — never while delivering OR returning
+                if (free) {
+                    String[] p   = cfp.getContent().split(":");
                     Location dst = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), "dst");
-                    double dist = effectiveDistance(dst);
+                    double dist     = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
                     double bidPrice = calcBidPrice(dist);
+                    double etaMin   = calcEtaMinutes(dist);
 
                     ACLMessage bid = cfp.createReply();
                     bid.setPerformative(ACLMessage.PROPOSE);
-                    bid.setContent("BID:" + getLocalName() + ":" + bidPrice + ":" + dist + ":" + trust_level);
+                    bid.setContent("BID:" + getLocalName() + ":" + bidPrice + ":" + dist + ":" + trust_level + ":" + etaMin);
                     bid.setConversationId(cfp.getConversationId());
                     send(bid);
-                    System.out.println("[" + getLocalName() + "] bid=" + String.format("%.1f", bidPrice) + " dist=" + String.format("%.2f", dist) + " trust=" + trust_level);
                 } else {
                     ACLMessage no = cfp.createReply();
                     no.setPerformative(ACLMessage.REFUSE);
@@ -106,35 +101,43 @@ public class DeliveryAgent extends Agent {
                     MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL));
             ACLMessage reply = myAgent.receive(mt);
             if (reply != null) {
-                if (reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+                if (reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL && free) {
                     free = false;
-                    returning = false;
                     trust_level = Math.min(150, trust_level + 5);
+                    MapRegistry.updateAgentTrust(getLocalName(), trust_level);
                     String[] p = reply.getContent().split(":");
-                    String oid = p[1];
+                    String   oid = p[1];
                     Location dst = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), p[4]);
-                    MapRegistry.log("[AGENT] " + getLocalName() + " trust=" + trust_level + " won job " + oid);
-                    addBehaviour(new GoDeliver(oid, dst));
-                } else {
+                    double promisedEta = Double.parseDouble(p[5]);
+                    long   startedAt   = System.currentTimeMillis();
+                    MapRegistry.log("[AGENT] " + getLocalName() + " trust=" + trust_level
+                            + " won " + oid + " | ETA " + String.format("%.1f", promisedEta) + "min");
+                    addBehaviour(new GoDeliver(oid, dst, promisedEta, startedAt));
+                } else if (reply.getPerformative() == ACLMessage.REJECT_PROPOSAL) {
                     trust_level = Math.max(10, trust_level - 2);
-                    System.out.println("[" + getLocalName() + "] lost bid, trust now " + trust_level);
+                    MapRegistry.updateAgentTrust(getLocalName(), trust_level);
                 }
             }
-            if (cfp == null && reply == null) block();
+            // only suspend when genuinely idle — if delivering/returning, keep the scheduler running
+            if (free && cfp == null && reply == null) block();
         }
     }
 
     private class GoDeliver extends Behaviour {
-        private final String oid;
+        private final String   oid;
         private final Location dst;
+        private final double   promisedEtaMin;
+        private final long     startedAt;
         private List<GeoPosition> path;
-        private int i = 0;
+        private int     idx     = 0;
         private boolean fetched = false;
-        private boolean over = false;
+        private boolean over    = false;
 
-        GoDeliver(String oid, Location dst) {
-            this.oid = oid;
-            this.dst = dst;
+        GoDeliver(String oid, Location dst, double promisedEtaMin, long startedAt) {
+            this.oid            = oid;
+            this.dst            = dst;
+            this.promisedEtaMin = promisedEtaMin;
+            this.startedAt      = startedAt;
         }
 
         @Override
@@ -143,15 +146,14 @@ public class DeliveryAgent extends Agent {
                 fetched = true;
                 MapRegistry.updateAgent(getLocalName(), pos, "Routing...", myColor());
                 path = MapPanel.fetchRoute(WarehouseAgent.WAREHOUSE_LOCATION, dst);
-                if (path == null || path.size() < 2) {
+                if (path == null || path.size() < 2)
                     path = straightLine(WarehouseAgent.WAREHOUSE_LOCATION, dst, 30);
-                }
                 MapRegistry.updateAgentRoute(getLocalName(), path);
                 MapRegistry.log("[MOVING] " + getLocalName() + " heading out for " + oid);
                 return;
             }
-            if (i < path.size()) {
-                GeoPosition wp = path.get(i++);
+            if (idx < path.size()) {
+                GeoPosition wp = path.get(idx++);
                 pos = new Location(wp.getLatitude(), wp.getLongitude(), getLocalName());
                 MapRegistry.updateAgent(getLocalName(), pos, "Delivering " + oid, myColor());
                 sleep();
@@ -159,53 +161,61 @@ public class DeliveryAgent extends Agent {
                 pos = dst;
                 MapRegistry.updateAgent(getLocalName(), pos, "Delivered", myColor());
                 MapRegistry.updateAgentRoute(getLocalName(), null);
+                double elapsedMin = (System.currentTimeMillis() - startedAt) / 60000.0;
+                if (elapsedMin > promisedEtaMin * 1.15) {
+                    trust_level = Math.max(10, trust_level - 5);
+                    MapRegistry.updateAgentTrust(getLocalName(), trust_level);
+                    MapRegistry.log("[LATE] " + getLocalName()
+                            + " took " + String.format("%.1f", elapsedMin) + "min"
+                            + " promised " + String.format("%.1f", promisedEtaMin) + "min"
+                            + " → trust=" + trust_level);
+                }
                 notifyWarehouse(oid);
                 addBehaviour(new GoBack());
                 over = true;
             }
         }
-
-        @Override
-        public boolean done() { return over; }
+        @Override public boolean done() { return over; }
     }
 
     private class GoBack extends Behaviour {
+        private final Location startPos;    // snapshot of pos at delivery time — never changes
         private List<GeoPosition> path;
-        private int i = 0;
+        private int     idx     = 0;
         private boolean fetched = false;
-        private boolean over = false;
+        private boolean over    = false;
+
+        GoBack() {
+            // capture the delivery destination before anything can change pos
+            this.startPos = pos;
+        }
 
         @Override
         public void action() {
             if (!fetched) {
                 fetched = true;
-                returning = true;
-                path = MapPanel.fetchRoute(pos, WarehouseAgent.WAREHOUSE_LOCATION);
-                if (path == null || path.size() < 2) {
-                    path = straightLine(pos, WarehouseAgent.WAREHOUSE_LOCATION, 20);
-                }
-                MapRegistry.updateAgentRoute(getLocalName(), path);
                 MapRegistry.updateAgent(getLocalName(), pos, "Returning...", myColor());
+                path = MapPanel.fetchRoute(startPos, WarehouseAgent.WAREHOUSE_LOCATION);
+                if (path == null || path.size() < 2)
+                    path = straightLine(startPos, WarehouseAgent.WAREHOUSE_LOCATION, 20);
+                MapRegistry.updateAgentRoute(getLocalName(), path);
                 return;
             }
-            if (i < path.size()) {
-                GeoPosition wp = path.get(i++);
+            if (idx < path.size()) {
+                GeoPosition wp = path.get(idx++);
                 pos = new Location(wp.getLatitude(), wp.getLongitude(), getLocalName());
                 MapRegistry.updateAgent(getLocalName(), pos, "Returning...", myColor());
                 sleep();
             } else {
-                pos = WarehouseAgent.WAREHOUSE_LOCATION;
+                pos  = WarehouseAgent.WAREHOUSE_LOCATION;
                 free = true;
-                returning = false;
                 MapRegistry.updateAgent(getLocalName(), pos, "Idle", myColor());
                 MapRegistry.updateAgentRoute(getLocalName(), null);
-                MapRegistry.log("[AGENT] " + getLocalName() + " back at warehouse | trust=" + trust_level);
+                MapRegistry.log("[AGENT] " + getLocalName() + " back | trust=" + trust_level);
                 over = true;
             }
         }
-
-        @Override
-        public boolean done() { return over; }
+        @Override public boolean done() { return over; }
     }
 
     private void notifyWarehouse(String oid) {
@@ -221,9 +231,7 @@ public class DeliveryAgent extends Agent {
                 msg.setContent("DELIVERED:" + oid);
                 send(msg);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private List<GeoPosition> straightLine(Location a, Location b, int n) {
@@ -231,23 +239,20 @@ public class DeliveryAgent extends Agent {
         for (int k = 1; k <= n; k++) {
             double t = (double) k / n;
             pts.add(new GeoPosition(
-                    a.getLatitude() + t * (b.getLatitude() - a.getLatitude()),
+                    a.getLatitude()  + t * (b.getLatitude()  - a.getLatitude()),
                     a.getLongitude() + t * (b.getLongitude() - a.getLongitude())));
         }
         return pts;
     }
 
     private void sleep() {
-        try {
-            Thread.sleep(STEP);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        try { Thread.sleep(STEP); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
-    public int getTrustLevel() { return trust_level; }
+    public int getTrustLevel()         { return trust_level; }
     public Location getCurrentLocation() { return pos; }
-    public String getAgentColor() { return color; }
+    public String getAgentColor()       { return color; }
 
     @Override
     protected void takeDown() {
