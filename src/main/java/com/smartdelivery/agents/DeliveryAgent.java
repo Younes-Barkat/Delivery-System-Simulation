@@ -11,22 +11,37 @@ import com.smartdelivery.gui.MapPanel;
 import org.jxmapviewer.viewer.GeoPosition;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class DeliveryAgent extends Agent {
 
-    private static final double SPEED = 30.0;
-    private static final int STEP = 250;
-    private static final double BASE_FEE = 20.0;
-    private static final double RATE_PER_KM = 10.0;
+    private static final double SPEED        = 30.0;
+    private static final int    STEP         = 250;  // ms per waypoint
+    private static final double BASE_FEE     = 20.0;
+    private static final double RATE_PER_KM  = 10.0;
+    private static final double CIRCUITY     = 1.4;
+    // 50% grace — only agents hit by obstacles are late
+    private static final double LATE_MARGIN  = 1.5;
+    // 1 real ms → displayed as (DISPLAY_SCALE/60000) sim-minutes
+    // a 7s real trip shows as ~2.3 min on screen
+    private static final double DISPLAY_SCALE = 20.0;
+
+    private static final double WP_PER_KM = 35.0;
+
+    // obstacle chances per trip (not per waypoint — keeps it controllable)
+    private static final int BLOCK_PROB   = 10; // 10% chance: 3s real pause
+    private static final int TRAFFIC_PROB = 25; // 25% chance: extra slow stretch
+    private static final long BLOCK_EXTRA_MS   = 3000; // real ms added by a road block
 
     private Location pos;
-    private boolean free = true;
-    private String color;
-    private int trust_level = 100;
+    private boolean  free        = true;
+    private String   color;
+    private int      trust_level = 100;
+    private final Random rng = new Random();
 
     @Override
     protected void setup() {
-        pos = WarehouseAgent.WAREHOUSE_LOCATION;
+        pos   = WarehouseAgent.WAREHOUSE_LOCATION;
         color = getArguments() != null && getArguments().length > 0
                 ? getArguments()[0].toString() : "BLUE";
 
@@ -47,26 +62,39 @@ public class DeliveryAgent extends Agent {
 
     private java.awt.Color myColor() {
         return switch (color) {
-            case "RED" -> new java.awt.Color(239, 68, 68);
-            case "GREEN" -> new java.awt.Color(0, 200, 80);
-            case "ORANGE" -> new java.awt.Color(160, 32, 240);
-            case "CYAN" -> new java.awt.Color(34, 211, 238);
+            case "RED"    -> new java.awt.Color(239, 68,  68);
+            case "GREEN"  -> new java.awt.Color(0,   200, 80);
+            case "ORANGE" -> new java.awt.Color(249, 115, 22);
+            case "CYAN"   -> new java.awt.Color(34,  211, 238);
             case "YELLOW" -> new java.awt.Color(251, 191, 36);
-            case "PINK" -> new java.awt.Color(236, 72, 153);
-            case "LIME" -> new java.awt.Color(132, 204, 22);
-            case "SKY" -> new java.awt.Color(56, 189, 248);
-            case "CORAL" -> new java.awt.Color(251, 113, 133);
-            case "MINT" -> new java.awt.Color(52, 211, 153);
-            default -> java.awt.Color.WHITE;
+            case "PINK"   -> new java.awt.Color(236, 72,  153);
+            case "LIME"   -> new java.awt.Color(132, 204, 22);
+            case "SKY"    -> new java.awt.Color(56,  189, 248);
+            case "CORAL"  -> new java.awt.Color(251, 113, 133);
+            case "MINT"   -> new java.awt.Color(52,  211, 153);
+            default       -> java.awt.Color.WHITE;
         };
     }
 
-    private double calcBidPrice(double distKm) {
-        return (BASE_FEE + distKm*RATE_PER_KM) * (100.0/trust_level);
+    // ETA in real milliseconds — the true budget for the trip
+    private long calcEtaMs(double straightKm) {
+        double waypoints = straightKm * CIRCUITY * WP_PER_KM;
+        return (long)(waypoints * STEP);  // no inflation here — LATE_MARGIN is the grace
     }
 
-    private double calcEtaMinutes(double distKm) {
-        return (distKm/SPEED) * 60.0;
+    // ETA displayed to the user in sim-minutes
+    private double calcEtaDisplayMin(double straightKm) {
+        return calcEtaMs(straightKm) * DISPLAY_SCALE / 60000.0;
+    }
+
+    // convert real elapsed milliseconds to sim-minutes for display
+    private static double msToDisplayMin(long ms) {
+        return ms * DISPLAY_SCALE / 60000.0;
+    }
+
+    // higher trust = lower effective price = more competitive in auctions
+    private double calcBidPrice(double straightKm) {
+        return (BASE_FEE + straightKm * CIRCUITY * RATE_PER_KM) * (100.0 / trust_level);
     }
 
     private class WaitForJob extends CyclicBehaviour {
@@ -75,15 +103,16 @@ public class DeliveryAgent extends Agent {
             ACLMessage cfp = myAgent.receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
             if (cfp != null) {
                 if (free) {
-                    String[] p = cfp.getContent().split(":");
+                    String[] p   = cfp.getContent().split(":");
                     Location dst = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), "dst");
-                    double dist = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
-                    double bidPrice = calcBidPrice(dist);
-                    double etaMin = calcEtaMinutes(dist);
+                    double dist       = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
+                    double bidPrice   = calcBidPrice(dist);
+                    double etaDispMin = calcEtaDisplayMin(dist);
 
                     ACLMessage bid = cfp.createReply();
                     bid.setPerformative(ACLMessage.PROPOSE);
-                    bid.setContent("BID:" + getLocalName() + ":" + bidPrice + ":" + dist + ":" + trust_level + ":" + etaMin);
+                    bid.setContent("BID:" + getLocalName() + ":" + bidPrice
+                            + ":" + dist + ":" + trust_level + ":" + etaDispMin);
                     bid.setConversationId(cfp.getConversationId());
                     send(bid);
                 } else {
@@ -101,39 +130,49 @@ public class DeliveryAgent extends Agent {
             if (reply != null) {
                 if (reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL && free) {
                     free = false;
-                    trust_level = Math.min(150, trust_level+5);
+                    trust_level = Math.min(150, trust_level + 5);
                     MapRegistry.updateAgentTrust(getLocalName(), trust_level);
-                    String[] p = reply.getContent().split(":");
-                    String oid = p[1];
-                    Location dst = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), p[4]);
-                    double promisedEta = Double.parseDouble(p[5]);
-                    long startedAt = System.currentTimeMillis();
+                    String[] p        = reply.getContent().split(":");
+                    String   oid      = p[1];
+                    Location dst      = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), p[4]);
+                    double   dispMin  = Double.parseDouble(p[5]);
+                    double   dist     = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
+                    long     etaMs    = calcEtaMs(dist);
+                    long     started  = System.currentTimeMillis();
                     MapRegistry.log("[AGENT] " + getLocalName() + " trust=" + trust_level
-                            + " won " + oid + " | ETA " + String.format("%.1f", promisedEta) + "min");
-                    addBehaviour(new GoDeliver(oid, dst, promisedEta, startedAt));
+                            + " won " + oid + " | ETA " + String.format("%.1f", dispMin) + " min");
+                    addBehaviour(new GoDeliver(oid, dst, dispMin, etaMs, started));
                 } else if (reply.getPerformative() == ACLMessage.REJECT_PROPOSAL) {
-                    trust_level = Math.max(10, trust_level-2);
+                    trust_level = Math.max(10, trust_level - 2);
                     MapRegistry.updateAgentTrust(getLocalName(), trust_level);
                 }
             }
+
+            // only block when genuinely idle — never while delivering
             if (free && cfp == null && reply == null) block();
         }
     }
 
     private class GoDeliver extends Behaviour {
-        private final String oid;
+        private final String   oid;
         private final Location dst;
-        private final double promisedEtaMin;
-        private final long startedAt;
+        private final double   dispMin;    // display-minutes shown to user
+        private final long     etaMs;      // real ms budget (waypoints × STEP)
+        private long     startedAt;
         private List<GeoPosition> path;
-        private int idx = 0;
-        private boolean fetched = false;
-        private boolean over = false;
+        private int     idx      = 0;
+        private boolean fetched  = false;
+        private boolean over     = false;
+        // obstacle state — set once at route fetch
+        private int  blockAt     = -1;   // waypoint index where block happens
+        private int  slowFrom    = -1;   // waypoint index where traffic starts
+        private int  slowLen     = 0;    // number of slow waypoints
 
-        GoDeliver(String oid, Location dst, double promisedEtaMin, long startedAt) {
-            this.oid = oid;
-            this.dst = dst;
-            this.promisedEtaMin = promisedEtaMin;
+        GoDeliver(String oid, Location dst, double dispMin, long etaMs, long startedAt) {
+            this.oid       = oid;
+            this.dst       = dst;
+            this.dispMin   = dispMin;
+            this.etaMs     = etaMs;
             this.startedAt = startedAt;
         }
 
@@ -146,28 +185,74 @@ public class DeliveryAgent extends Agent {
                 if (path == null || path.size() < 2)
                     path = straightLine(WarehouseAgent.WAREHOUSE_LOCATION, dst, 30);
                 MapRegistry.updateAgentRoute(getLocalName(), path);
-                MapRegistry.log("[MOVING] " + getLocalName() + " heading out for " + oid);
+
+                // FIX 1: Reset the clock AFTER the HTTP request to ignore API latency!
+                this.startedAt = System.currentTimeMillis();
+
+                MapRegistry.log("[MOVING] " + getLocalName() + " → " + oid
+                        + " | ETA " + String.format("%.1f", dispMin) + " min");
+
+                // roll obstacle dice once for the whole trip
+                int n    = path.size();
+                int roll = rng.nextInt(100);
+                if (roll < BLOCK_PROB) {
+                    blockAt = n/3 + rng.nextInt(Math.max(1, n/3));
+                    MapRegistry.log("[OBSTACLE] " + getLocalName() + " road block ahead on " + oid);
+                } else if (roll < BLOCK_PROB + TRAFFIC_PROB) {
+                    slowFrom = n/3 + rng.nextInt(Math.max(1, n/3));
+                    slowLen  = 10;
+                    MapRegistry.log("[OBSTACLE] " + getLocalName() + " traffic jam ahead on " + oid);
+                }
                 return;
             }
+
             if (idx < path.size()) {
                 GeoPosition wp = path.get(idx++);
                 pos = new Location(wp.getLatitude(), wp.getLongitude(), getLocalName());
-                MapRegistry.updateAgent(getLocalName(), pos, "Delivering " + oid, myColor());
-                sleep();
+
+                if (blockAt >= 0 && idx - 1 == blockAt) {
+                    MapRegistry.updateAgent(getLocalName(), pos, "Blocked! " + oid, myColor());
+                    sleepMs(BLOCK_EXTRA_MS);
+                    blockAt = -1;
+                } else if (slowFrom >= 0 && idx - 1 >= slowFrom && idx - 1 < slowFrom + slowLen) {
+                    MapRegistry.updateAgent(getLocalName(), pos, "Traffic " + oid, myColor());
+                    sleepMs(STEP * 3);
+                } else {
+                    MapRegistry.updateAgent(getLocalName(), pos, "Delivering " + oid, myColor());
+                    sleep();
+                }
             } else {
+                // arrived
                 pos = dst;
+                long elapsedMs = System.currentTimeMillis() - startedAt;
+
+                // FIX 2: Base the deadline strictly on the actual path taken
+                // Ideal time without traffic is (path size * 250ms).
+                // We add a 1500ms grace period. If they hit a block (3000ms) or traffic (5000ms),
+                // they will guaranteed be marked LATE. Otherwise, ON TIME.
+                long idealMs = (long) path.size() * STEP;
+                long deadlineMs = idealMs + 1500;
+
+                boolean onTime = elapsedMs <= deadlineMs;
+                double elapsedDisp = msToDisplayMin(elapsedMs);
+
                 MapRegistry.updateAgent(getLocalName(), pos, "Delivered", myColor());
                 MapRegistry.updateAgentRoute(getLocalName(), null);
-                double elapsedMin = (System.currentTimeMillis()-startedAt)/60000.0;
-                if (elapsedMin > promisedEtaMin * 1.15) {
-                    trust_level = Math.max(10, trust_level-5);
+
+                if (!onTime) {
+                    trust_level = Math.max(10, trust_level - 5);
                     MapRegistry.updateAgentTrust(getLocalName(), trust_level);
                     MapRegistry.log("[LATE] " + getLocalName()
-                            + " took " + String.format("%.1f", elapsedMin) + "min"
-                            + " promised " + String.format("%.1f", promisedEtaMin) + "min"
-                            + " → trust=" + trust_level);
+                            + " took " + String.format("%.1f", elapsedDisp) + " min"
+                            + " | promised " + String.format("%.1f", dispMin) + " min"
+                            + " | trust=" + trust_level);
+                } else {
+                    MapRegistry.log("[ON TIME] " + getLocalName()
+                            + " " + String.format("%.1f", elapsedDisp) + "/"
+                            + String.format("%.1f", dispMin) + " min");
                 }
-                notifyWarehouse(oid);
+
+                notifyWarehouse(oid, onTime, elapsedDisp);
                 addBehaviour(new GoBack());
                 over = true;
             }
@@ -176,15 +261,13 @@ public class DeliveryAgent extends Agent {
     }
 
     private class GoBack extends Behaviour {
-        private final Location startPos;
+        private final Location startPos; // snapshot — safe from shared-field mutation
         private List<GeoPosition> path;
-        private int idx = 0;
+        private int     idx     = 0;
         private boolean fetched = false;
-        private boolean over = false;
+        private boolean over    = false;
 
-        GoBack() {
-            this.startPos = pos;
-        }
+        GoBack() { this.startPos = pos; }
 
         @Override
         public void action() {
@@ -203,7 +286,7 @@ public class DeliveryAgent extends Agent {
                 MapRegistry.updateAgent(getLocalName(), pos, "Returning...", myColor());
                 sleep();
             } else {
-                pos = WarehouseAgent.WAREHOUSE_LOCATION;
+                pos  = WarehouseAgent.WAREHOUSE_LOCATION;
                 free = true;
                 MapRegistry.updateAgent(getLocalName(), pos, "Idle", myColor());
                 MapRegistry.updateAgentRoute(getLocalName(), null);
@@ -214,7 +297,8 @@ public class DeliveryAgent extends Agent {
         @Override public boolean done() { return over; }
     }
 
-    private void notifyWarehouse(String oid) {
+    // DELIVERED message now carries onTime flag and actual elapsed time
+    private void notifyWarehouse(String oid, boolean onTime, double elapsedMin) {
         DFAgentDescription t = new DFAgentDescription();
         ServiceDescription s = new ServiceDescription();
         s.setType("warehouse");
@@ -224,7 +308,9 @@ public class DeliveryAgent extends Agent {
             if (found.length > 0) {
                 ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
                 msg.addReceiver(found[0].getName());
-                msg.setContent("DELIVERED:" + oid);
+                // format: DELIVERED:orderId:onTime:elapsedMin
+                msg.setContent("DELIVERED:" + oid + ":" + onTime
+                        + ":" + String.format("%.2f", elapsedMin));
                 send(msg);
             }
         } catch (Exception e) { e.printStackTrace(); }
@@ -233,10 +319,10 @@ public class DeliveryAgent extends Agent {
     private List<GeoPosition> straightLine(Location a, Location b, int n) {
         List<GeoPosition> pts = new ArrayList<>();
         for (int k = 1; k <= n; k++) {
-            double t = (double) k/n;
+            double t = (double) k / n;
             pts.add(new GeoPosition(
-                    a.getLatitude() + t*(b.getLatitude()-a.getLatitude()),
-                    a.getLongitude() + t*(b.getLongitude()-a.getLongitude())));
+                    a.getLatitude()  + t * (b.getLatitude()  - a.getLatitude()),
+                    a.getLongitude() + t * (b.getLongitude() - a.getLongitude())));
         }
         return pts;
     }
@@ -246,9 +332,14 @@ public class DeliveryAgent extends Agent {
         catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
-    public int getTrustLevel() { return trust_level; }
+    private void sleepMs(long ms) {
+        try { Thread.sleep(ms); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+    }
+
+    public int      getTrustLevel()      { return trust_level; }
     public Location getCurrentLocation() { return pos; }
-    public String getAgentColor() { return color; }
+    public String   getAgentColor()      { return color; }
 
     @Override
     protected void takeDown() {

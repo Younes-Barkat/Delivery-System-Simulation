@@ -31,10 +31,23 @@ public class Order{
     public void markInTransit(){
         this.status=Status.IN_TRANSIT;
     }
-    public void markDelivered(){
-        this.status= Status.DELIVERED;
+    private boolean onTime      = true;
+    private double  actualMin   = -1;
+
+    public void markDelivered(boolean onTime, double actualMin) {
+        this.status     = Status.DELIVERED;
         this.deliveredAt = Instant.now();
+        this.onTime     = onTime;
+        this.actualMin  = actualMin;
     }
+
+    // keep the old no-arg version so nothing else breaks
+    public void markDelivered() {
+        markDelivered(true, -1);
+    }
+
+    public boolean isOnTime()    { return onTime; }
+    public double  getActualMin(){ return actualMin; }
     public long getWaitTimeSeconds() {
         return assignedAt==null ?-1:assignedAt.getEpochSecond()-createdAt.getEpochSecond();
     }
