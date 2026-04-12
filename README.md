@@ -334,9 +334,11 @@ A few non-obvious issues came up during development worth documenting for anyone
 
 ## **Attoui Radhwane**
 
-**Melouki Anes CHoayb**
+## **Melouki Anes CHoayb**
+
 
 Under the supervision of **Dr. Meliouh Amel** — M'sila University, Department of Computer Science 🎓
+
 For better understanding go and see the [Presentation](https://gamma.app/docs/Smart-Delivery-System-1ylop0s3k8j1rse)
 
 ---
