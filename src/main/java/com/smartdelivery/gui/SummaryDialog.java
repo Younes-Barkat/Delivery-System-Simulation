@@ -199,7 +199,7 @@ public class SummaryDialog extends JDialog {
             }
         };
         bar.setOpaque(false);
-        barContainer.add(bar, BorderLayout.CENTER);.
+        barContainer.add(bar, BorderLayout.CENTER);
         JLabel statsL = new JLabel(count + " Del | " + String.format("%.0f", earn) + " DZD | T=" + String.format("%.1f", trust));
         statsL.setForeground(TEXT);
         statsL.setFont(new Font("Consolas", Font.BOLD, 14));
