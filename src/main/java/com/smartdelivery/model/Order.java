@@ -9,7 +9,6 @@ public class Order{
     private final Location dest;
     private Status status;
     private String agent;
-
     private final Instant createdAt;
     private Instant assignedAt;
     private Instant  deliveredAt;

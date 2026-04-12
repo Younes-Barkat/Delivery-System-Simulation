@@ -252,7 +252,7 @@ public class MapPanel extends JPanel {
                 g.setColor(new Color(pinColor.getRed(), pinColor.getGreen(), pinColor.getBlue(), 55));
                 g.fillOval(x - 14, y - 28, 28, 28);
                 g.setColor(pinColor);
-                g.fillOval(x - 9, y - 26, 18, 18);
+                g.fillOval(x - 9, y -26, 18, 18);
                 g.setColor(Color.WHITE);
                 g.fillOval(x - 4, y - 21, 8, 8);
                 int[] px = {x - 4, x + 4, x};
@@ -309,14 +309,14 @@ public class MapPanel extends JPanel {
             Rectangle bounds = map.getViewportBounds();
 
             Point2D pt = map.getTileFactory().geoToPixel(WAREHOUSE_POS, map.getZoom());
-            int x = (int) (pt.getX() - bounds.getX());
-            int y = (int) (pt.getY() - bounds.getY());
+            int x = (int) (pt.getX() -bounds.getX());
+            int y = (int) (pt.getY() -bounds.getY());
 
             Color blue = new Color(0, 97, 255);
             g.setColor(new Color(0, 182, 255, 109));
             g.setStroke(new BasicStroke(1f));
-            g.drawOval(x - 28, y - 28, 56, 56);
-            g.drawOval(x - 40, y - 40, 80, 80);
+            g.drawOval(x - 28,y - 28, 56, 56);
+            g.drawOval(x - 40,y - 40,80, 80);
             g.setColor(new Color(1, 172, 251, 207));
             g.fillRoundRect(x - 16, y - 16, 32, 32, 6, 6);
             g.setColor(blue);
@@ -364,7 +364,7 @@ public class MapPanel extends JPanel {
         Object[][] entries = {
                 {new Color(56, 189, 248), "Warehouse"},
                 {Color.RED, "Agent 1 (D1)"},
-                {new Color(0, 200, 80), "Agent 2 (D2)"},
+                {new Color(0, 200, 80),"Agent 2 (D2)"},
                 {new Color(160, 32, 240), "Agent 3 (D3)"},
                 {new Color(251, 191, 36), "Pin: waiting (yellow)"},
                 {new Color(220, 38, 38), "Pin: assigned (agent color)"},

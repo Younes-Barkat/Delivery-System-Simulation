@@ -14,47 +14,46 @@ import javax.swing.table.DefaultTableCellRenderer;
 import java.util.Map;
 
 public class SimulationWindow extends JFrame {
-    private static final Color BG_DARKEST   = new Color(10, 12, 20);
-    private static final Color BG_DARK      = new Color(18, 22, 36);
-    private static final Color BG_CARD      = new Color(26, 32, 52);
-    private static final Color BG_HEADER    = new Color(15, 19, 32);
+    private static final Color BG_DARKEST= new Color(10, 12, 20);
+    private static final Color BG_DARK = new Color(18, 22, 36);
+    private static final Color BG_CARD = new Color(26, 32, 52);
+    private static final Color BG_HEADER = new Color(15, 19, 32);
     private static final Color ACCENT_BLUE  = new Color(56, 189, 248);
     private static final Color ACCENT_GREEN = new Color(52, 211, 153);
-    private static final Color ACCENT_RED   = new Color(248, 113, 113);
-    private static final Color ACCENT_AMBER = new Color(251, 191, 36);
-    private static final Color ACCENT_PURPLE= new Color(167, 139, 250);
-    private static final Color TEXT_PRIMARY = new Color(226, 232, 240);
-    private static final Color TEXT_DIM     = new Color(100, 116, 139);
+    private static final Color ACCENT_RED = new Color(248, 113, 113);
+    private static final Color ACCENT_AMBER = new Color(251,191, 36);
+    private static final Color ACCENT_PURPLE= new Color(167,139, 250);
+    private static final Color TEXT_PRIMARY = new Color(226,232, 240);
+    private static final Color TEXT_DIM = new Color(100, 116, 139);
 
     private final MapPanel mapPanel;
     private final JTextArea logArea;
     private final JLabel deliveredLabel;
     private final JLabel activeLabel;
-    private final JLabel agentsLabel; // This is the Timer Label
+    private final JLabel agentsLabel;
     private final JLabel earningsLabel;
-
     private final DefaultTableModel tableModel;
-    private final Map<String, Integer> rows        = new LinkedHashMap<>();
+    private final Map<String, Integer> rows = new LinkedHashMap<>();
     private final Map<String, Double>  orderPrices = new LinkedHashMap<>();
-    private int done   = 0;
+    private int done = 0;
     private int active = 0;
 
-    private final long   startTime    = System.currentTimeMillis();
-    private double totalWait          = 0;
-    private double totalDelivery      = 0;
-    private long   fastest            = Long.MAX_VALUE;
-    private long   slowest            = -1;
-    private int    numAgents          = 0;
-    private double totalEarnings      = 0;
-    private final Map<String, Integer> agentScores   = new LinkedHashMap<>();
-    private final Map<String, Double>  agentTrust    = new LinkedHashMap<>();
+    private final long   startTime = System.currentTimeMillis();
+    private double totalWait  = 0;
+    private double totalDelivery = 0;
+    private long  fastest = Long.MAX_VALUE;
+    private long  slowest= -1;
+    private int numAgents = 0;
+    private double totalEarnings = 0;
+    private final Map<String, Integer> agentScores = new LinkedHashMap<>();
+    private final Map<String, Double>  agentTrust = new LinkedHashMap<>();
     private final Map<String, Double>  agentEarnings = new LinkedHashMap<>();
     private double highestPrice = -1;
     private double lowestPrice  = Double.MAX_VALUE;
-    private int    onTimeCount  = 0;
-    private int    lateCount    = 0;
+    private int  onTimeCount = 0;
+    private int lateCount = 0;
 
-    private JPanel     trustPanelRef;
+    private JPanel trustPanelRef;
     private JScrollPane trustScroll;
 
     public SimulationWindow() {
@@ -64,8 +63,6 @@ public class SimulationWindow extends JFrame {
         setMinimumSize(new Dimension(1100, 700));
         setLayout(new BorderLayout(0, 0));
         getContentPane().setBackground(BG_DARKEST);
-
-        // Timer initialization: Fires every second to update the time display
         Timer uiTimer = new Timer(1000, e -> updateTimeLabel());
         uiTimer.start();
 
@@ -117,20 +114,18 @@ public class SimulationWindow extends JFrame {
         statsRow.setBackground(BG_DARK);
 
         deliveredLabel = statCard("0", "Delivered", ACCENT_GREEN);
-        activeLabel    = statCard("0", "Active",    ACCENT_BLUE);
-        agentsLabel    = statCard("00:00", "Time",  ACCENT_AMBER);
-        earningsLabel  = statCard("0", "DZD",       ACCENT_PURPLE);
+        activeLabel    = statCard("0", "Active", ACCENT_BLUE);
+        agentsLabel    = statCard("00:00", "Time", ACCENT_AMBER);
+        earningsLabel  = statCard("0", "DZD", ACCENT_PURPLE);
 
         statsRow.add(wrapStat(deliveredLabel, "Delivered", ACCENT_GREEN));
-        statsRow.add(wrapStat(activeLabel,    "Active",    ACCENT_BLUE));
-        statsRow.add(wrapStat(agentsLabel,    "Time",      ACCENT_AMBER));
-        statsRow.add(wrapStat(earningsLabel,  "Earnings",  ACCENT_PURPLE));
+        statsRow.add(wrapStat(activeLabel, "Active", ACCENT_BLUE));
+        statsRow.add(wrapStat(agentsLabel,"Time", ACCENT_AMBER));
+        statsRow.add(wrapStat(earningsLabel, "Earnings", ACCENT_PURPLE));
         right.add(statsRow);
         right.add(Box.createVerticalStrut(14));
-
         right.add(sectionLabel("LIVE ORDER STATUS"));
         right.add(Box.createVerticalStrut(4));
-
         String[] cols = {"Order ID", "Agent", "Status", "Price", "ETA", "✓"};
         tableModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -190,15 +185,11 @@ public class SimulationWindow extends JFrame {
         trustPanelRef = new JPanel();
         trustPanelRef.setLayout(new BoxLayout(trustPanelRef, BoxLayout.Y_AXIS));
         trustPanelRef.setBackground(new Color(18, 22, 36));
-        // Increased padding to ensure rows aren't cut off by the scrollbar
         trustPanelRef.setBorder(new EmptyBorder(8, 10, 8, 25));
-
         trustScroll = new JScrollPane(trustPanelRef);
         trustScroll.setBackground(new Color(18, 22, 36));
         trustScroll.getViewport().setBackground(new Color(18, 22, 36));
         trustScroll.setBorder(BorderFactory.createLineBorder(new Color(40, 55, 80), 1));
-
-        // Increased height from 150 to 220 to show more agents at once
         int fixedH = 220;
         Dimension d = new Dimension(396, fixedH);
         trustScroll.setPreferredSize(d);
@@ -215,8 +206,8 @@ public class SimulationWindow extends JFrame {
             trustPanelRef.removeAll();
             Color[] agentColors = {
                     new Color(239, 68, 68), new Color(0, 200, 80), new Color(160, 32, 240),
-                    new Color(34, 211, 238), new Color(249, 115, 22), new Color(236, 72, 153),
-                    new Color(132, 204, 22), new Color(56, 189, 248), new Color(251, 113, 133),
+                    new Color(34, 211, 238), new Color(249,115, 22), new Color(236, 72, 153),
+                    new Color(132, 204, 22), new Color(56,189, 248), new Color(251, 113, 133),
                     new Color(52, 211, 153)
             };
 
@@ -246,12 +237,9 @@ public class SimulationWindow extends JFrame {
                 nameL.setForeground(col);
                 nameL.setFont(new Font("Consolas", Font.BOLD, 12));
                 nameL.setPreferredSize(new Dimension(30, 24));
-
                 JPanel barBg = new JPanel(new BorderLayout());
                 barBg.setBackground(new Color(15, 20, 35));
                 barBg.setBorder(BorderFactory.createLineBorder(new Color(40, 55, 80), 1));
-
-                // Width calculation adjusted to fit within the 420px sidebar
                 int fillW = (int) (Math.min(trust, 150) / 150.0 * 240);
                 Color barColor = trust >= 120 ? ACCENT_GREEN : trust >= 80 ? ACCENT_BLUE : ACCENT_RED;
 
@@ -354,7 +342,7 @@ public class SimulationWindow extends JFrame {
         else lateCount++;
 
         Double price = orderPrices.get(order.getOrderId());
-        if (price != null) {
+        if (price != null){
             totalEarnings += price;
             if (price > highestPrice) highestPrice = price;
             if (price < lowestPrice) lowestPrice = price;
@@ -383,7 +371,7 @@ public class SimulationWindow extends JFrame {
 
     public void setAgentCount(int n) {
         numAgents = n;
-        for (int i = 1; i <= n; i++) {
+        for (int i = 1; i <= n; i++){
             agentScores.put("Delivery-" + i, 0);
             agentTrust.put("Delivery-" + i, 100.0);
             agentEarnings.put("Delivery-" + i, 0.0);
@@ -415,8 +403,6 @@ public class SimulationWindow extends JFrame {
                 lowestPrice == Double.MAX_VALUE ? 0 : lowestPrice,
                 avgTrust, onTimeCount, lateCount,
                 names, deliveries, earningsList, trusts);
-
-        // CALLED THE RENAMED METHOD HERE
         SummaryDialog.displayReport(this, stats);
     }
 
@@ -424,10 +410,10 @@ public class SimulationWindow extends JFrame {
 
     private String statusLabel(Order.Status status) {
         return switch (status) {
-            case PENDING    -> "[ PENDING ]";
-            case ASSIGNED   -> "[ ASSIGNED ]";
+            case PENDING -> "[ PENDING ]";
+            case ASSIGNED -> "[ ASSIGNED ]";
             case IN_TRANSIT -> "[ EN ROUTE ]";
-            case DELIVERED  -> "[ DONE ]";
+            case DELIVERED -> "[ DONE ]";
         };
     }
 

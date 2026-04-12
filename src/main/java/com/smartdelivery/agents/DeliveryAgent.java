@@ -15,28 +15,22 @@ import java.util.Random;
 
 public class DeliveryAgent extends Agent {
 
-    private static final double SPEED        = 30.0;
-    private static final int    STEP         = 250;  // ms per waypoint
-    private static final double BASE_FEE     = 20.0;
-    private static final double RATE_PER_KM  = 10.0;
-    private static final double CIRCUITY     = 1.4;
-    // 50% grace — only agents hit by obstacles are late
-    private static final double LATE_MARGIN  = 1.5;
-    // 1 real ms → displayed as (DISPLAY_SCALE/60000) sim-minutes
-    // a 7s real trip shows as ~2.3 min on screen
+    private static final double SPEED = 30.0;
+    private static final int STEP = 250;
+    private static final double BASE_FEE= 20.0;
+    private static final double RATE_PER_KM = 10.0;
+    private static final double CIRCUITY = 1.4;
+    private static final double LATE_MARGIN = 1.5;
     private static final double DISPLAY_SCALE = 20.0;
-
     private static final double WP_PER_KM = 35.0;
-
-    // obstacle chances per trip (not per waypoint — keeps it controllable)
-    private static final int BLOCK_PROB   = 10; // 10% chance: 3s real pause
-    private static final int TRAFFIC_PROB = 25; // 25% chance: extra slow stretch
-    private static final long BLOCK_EXTRA_MS   = 3000; // real ms added by a road block
+    private static final int BLOCK_PROB = 10;
+    private static final int TRAFFIC_PROB = 25;
+    private static final long BLOCK_EXTRA_MS = 3000;
 
     private Location pos;
-    private boolean  free        = true;
-    private String   color;
-    private int      trust_level = 100;
+    private boolean free        = true;
+    private String color;
+    private int  trust_level = 100;
     private final Random rng = new Random();
 
     @Override
@@ -62,17 +56,17 @@ public class DeliveryAgent extends Agent {
 
     private java.awt.Color myColor() {
         return switch (color) {
-            case "RED"    -> new java.awt.Color(239, 68,  68);
-            case "GREEN"  -> new java.awt.Color(0,   200, 80);
-            case "ORANGE" -> new java.awt.Color(249, 115, 22);
-            case "CYAN"   -> new java.awt.Color(34,  211, 238);
-            case "YELLOW" -> new java.awt.Color(251, 191, 36);
-            case "PINK"   -> new java.awt.Color(236, 72,  153);
-            case "LIME"   -> new java.awt.Color(132, 204, 22);
-            case "SKY"    -> new java.awt.Color(56,  189, 248);
-            case "CORAL"  -> new java.awt.Color(251, 113, 133);
-            case "MINT"   -> new java.awt.Color(52,  211, 153);
-            default       -> java.awt.Color.WHITE;
+            case "RED" -> new java.awt.Color(239, 68, 68);
+            case "GREEN" -> new java.awt.Color(0, 200, 80);
+            case "ORANGE"-> new java.awt.Color(160, 32, 240);
+            case "CYAN" -> new java.awt.Color(34,  211, 238);
+            case "YELLOW" -> new java.awt.Color(251, 191,36);
+            case "PINK" -> new java.awt.Color(236, 72, 153);
+            case "LIME" -> new java.awt.Color(132, 204,22);
+            case "SKY" -> new java.awt.Color(56,  189, 248);
+            case "CORAL" -> new java.awt.Color(251, 113,133);
+            case "MINT"-> new java.awt.Color(52, 211,153);
+            default  -> java.awt.Color.WHITE;
         };
     }
 
@@ -105,9 +99,14 @@ public class DeliveryAgent extends Agent {
                 if (free) {
                     String[] p   = cfp.getContent().split(":");
                     Location dst = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), "dst");
-                    double dist       = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
-                    double bidPrice   = calcBidPrice(dist);
-                    double etaDispMin = calcEtaDisplayMin(dist);
+                    // dist = agent's current position → warehouse + warehouse → order
+                    // (agent is idle at warehouse so pos ≈ warehouse, but this handles
+                    //  future cases where agents could bid while not fully back)
+                    double distToWarehouse = pos.distanceTo(WarehouseAgent.WAREHOUSE_LOCATION);
+                    double distToOrder     = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
+                    double dist            = distToWarehouse + distToOrder;
+                    double bidPrice        = calcBidPrice(dist);
+                    double etaDispMin      = calcEtaDisplayMin(dist);
 
                     ACLMessage bid = cfp.createReply();
                     bid.setPerformative(ACLMessage.PROPOSE);
@@ -132,11 +131,12 @@ public class DeliveryAgent extends Agent {
                     free = false;
                     trust_level = Math.min(150, trust_level + 5);
                     MapRegistry.updateAgentTrust(getLocalName(), trust_level);
-                    String[] p        = reply.getContent().split(":");
+                    String[] p    = reply.getContent().split(":");
                     String   oid      = p[1];
                     Location dst      = new Location(Double.parseDouble(p[2]), Double.parseDouble(p[3]), p[4]);
                     double   dispMin  = Double.parseDouble(p[5]);
-                    double   dist     = WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
+                    double   dist     = pos.distanceTo(WarehouseAgent.WAREHOUSE_LOCATION)
+                            + WarehouseAgent.WAREHOUSE_LOCATION.distanceTo(dst);
                     long     etaMs    = calcEtaMs(dist);
                     long     started  = System.currentTimeMillis();
                     MapRegistry.log("[AGENT] " + getLocalName() + " trust=" + trust_level
@@ -147,32 +147,29 @@ public class DeliveryAgent extends Agent {
                     MapRegistry.updateAgentTrust(getLocalName(), trust_level);
                 }
             }
-
-            // only block when genuinely idle — never while delivering
             if (free && cfp == null && reply == null) block();
         }
     }
 
     private class GoDeliver extends Behaviour {
-        private final String   oid;
+        private final String oid;
         private final Location dst;
-        private final double   dispMin;    // display-minutes shown to user
-        private final long     etaMs;      // real ms budget (waypoints × STEP)
-        private long     startedAt;
+        private final double   dispMin;
+        private final long  etaMs;
+        private long  startedAt;
         private List<GeoPosition> path;
-        private int     idx      = 0;
+        private int  idx  = 0;
         private boolean fetched  = false;
-        private boolean over     = false;
-        // obstacle state — set once at route fetch
-        private int  blockAt     = -1;   // waypoint index where block happens
-        private int  slowFrom    = -1;   // waypoint index where traffic starts
-        private int  slowLen     = 0;    // number of slow waypoints
+        private boolean over  = false;
+        private int  blockAt  = -1;
+        private int  slowFrom = -1;
+        private int  slowLen  = 0;
 
         GoDeliver(String oid, Location dst, double dispMin, long etaMs, long startedAt) {
-            this.oid       = oid;
-            this.dst       = dst;
-            this.dispMin   = dispMin;
-            this.etaMs     = etaMs;
+            this.oid = oid;
+            this.dst  = dst;
+            this.dispMin= dispMin;
+            this.etaMs= etaMs;
             this.startedAt = startedAt;
         }
 
@@ -225,15 +222,10 @@ public class DeliveryAgent extends Agent {
                 // arrived
                 pos = dst;
                 long elapsedMs = System.currentTimeMillis() - startedAt;
-
-                // FIX 2: Base the deadline strictly on the actual path taken
-                // Ideal time without traffic is (path size * 250ms).
-                // We add a 1500ms grace period. If they hit a block (3000ms) or traffic (5000ms),
-                // they will guaranteed be marked LATE. Otherwise, ON TIME.
                 long idealMs = (long) path.size() * STEP;
                 long deadlineMs = idealMs + 1500;
 
-                boolean onTime = elapsedMs <= deadlineMs;
+                boolean onTime = elapsedMs <=deadlineMs;
                 double elapsedDisp = msToDisplayMin(elapsedMs);
 
                 MapRegistry.updateAgent(getLocalName(), pos, "Delivered", myColor());
@@ -257,15 +249,15 @@ public class DeliveryAgent extends Agent {
                 over = true;
             }
         }
-        @Override public boolean done() { return over; }
+        @Override public boolean done(){ return over; }
     }
 
-    private class GoBack extends Behaviour {
+    private class GoBack extends Behaviour{
         private final Location startPos; // snapshot — safe from shared-field mutation
         private List<GeoPosition> path;
-        private int     idx     = 0;
+        private int idx = 0;
         private boolean fetched = false;
-        private boolean over    = false;
+        private boolean over = false;
 
         GoBack() { this.startPos = pos; }
 
@@ -297,7 +289,6 @@ public class DeliveryAgent extends Agent {
         @Override public boolean done() { return over; }
     }
 
-    // DELIVERED message now carries onTime flag and actual elapsed time
     private void notifyWarehouse(String oid, boolean onTime, double elapsedMin) {
         DFAgentDescription t = new DFAgentDescription();
         ServiceDescription s = new ServiceDescription();
@@ -308,7 +299,6 @@ public class DeliveryAgent extends Agent {
             if (found.length > 0) {
                 ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
                 msg.addReceiver(found[0].getName());
-                // format: DELIVERED:orderId:onTime:elapsedMin
                 msg.setContent("DELIVERED:" + oid + ":" + onTime
                         + ":" + String.format("%.2f", elapsedMin));
                 send(msg);
@@ -334,12 +324,12 @@ public class DeliveryAgent extends Agent {
 
     private void sleepMs(long ms) {
         try { Thread.sleep(ms); }
-        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        catch (InterruptedException e){ Thread.currentThread().interrupt(); }
     }
 
-    public int      getTrustLevel()      { return trust_level; }
+    public int getTrustLevel() { return trust_level; }
     public Location getCurrentLocation() { return pos; }
-    public String   getAgentColor()      { return color; }
+    public String   getAgentColor() { return color; }
 
     @Override
     protected void takeDown() {

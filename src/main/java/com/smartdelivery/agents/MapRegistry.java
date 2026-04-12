@@ -39,7 +39,7 @@ public class MapRegistry {
         if (win != null) win.setOrderPrice(orderId, price);
     }
     public static void setOrderEta(String orderId, double etaMin) {
-        if (win != null) win.setOrderEta(orderId, etaMin);
+        if(win != null) win.setOrderEta(orderId, etaMin);
     }
     public static void setOrderOnTime(String orderId, boolean onTime) {
         if (win != null) win.setOrderOnTime(orderId, onTime);
@@ -50,7 +50,6 @@ public class MapRegistry {
     public static void log(String msg) {
         if (win != null) win.log(msg);
     }
-    // incrementDelivered() removed — counting is handled inside SimulationWindow.recordDelivery()
     public static void recordDelivery(Order o) {
         if (win != null) win.recordDelivery(o);
     }

@@ -8,53 +8,53 @@ import java.awt.geom.RoundRectangle2D;
 import java.util.List;
 
 public class SummaryDialog extends JDialog {
-    private static final Color BG     = new Color(10, 12, 20);
-    private static final Color CARD   = new Color(26, 32, 52);
-    private static final Color CARD2  = new Color(20, 26, 44);
-    private static final Color EDGE   = new Color(40, 55, 80);
-    private static final Color BLUE   = new Color(56, 189, 248);
-    private static final Color GREEN  = new Color(52, 211, 153);
-    private static final Color AMBER  = new Color(251, 191, 36);
-    private static final Color RED    = new Color(248, 113, 113);
+    private static final Color BG  = new Color(10, 12, 20);
+    private static final Color CARD = new Color(26, 32, 52);
+    private static final Color CARD2 = new Color(20, 26, 44);
+    private static final Color EDGE = new Color(40, 55, 80);
+    private static final Color BLUE = new Color(56, 189, 248);
+    private static final Color GREEN = new Color(52, 211, 153);
+    private static final Color AMBER = new Color(251, 191, 36);
+    private static final Color RED  = new Color(248, 113, 113);
     private static final Color PURPLE = new Color(167, 139, 250);
-    private static final Color TEXT   = new Color(226, 232, 240);
-    private static final Color MUTED  = new Color(100, 116, 139);
+    private static final Color TEXT = new Color(226, 232, 240);
+    private static final Color MUTED= new Color(100, 116, 139);
 
     public static class Stats {
-        public final int    totalDelivered;
-        public final int    totalAgents;
-        public final long   elapsedSeconds;
+        public final int totalDelivered;
+        public final int totalAgents;
+        public final long elapsedSeconds;
         public final double totalEarnings;
         public final double avgPrice;
         public final double highestPrice;
         public final double lowestPrice;
         public final double avgTrust;
-        public final int    onTimeCount;
-        public final int    lateCount;
-        public final List<String>  agentNames;
+        public final int onTimeCount;
+        public final int lateCount;
+        public final List<String> agentNames;
         public final List<Integer> agentDeliveries;
-        public final List<Double>  agentEarnings;
-        public final List<Double>  agentTrusts;
+        public final List<Double> agentEarnings;
+        public final List<Double> agentTrusts;
 
         public Stats(int totalDelivered, int totalAgents, long elapsedSeconds,
                      double totalEarnings, double avgPrice, double highestPrice, double lowestPrice,
                      double avgTrust, int onTimeCount, int lateCount,
                      List<String> agentNames, List<Integer> agentDeliveries,
                      List<Double> agentEarnings, List<Double> agentTrusts) {
-            this.totalDelivered  = totalDelivered;
-            this.totalAgents     = totalAgents;
-            this.elapsedSeconds  = elapsedSeconds;
-            this.totalEarnings   = totalEarnings;
-            this.avgPrice        = avgPrice;
-            this.highestPrice    = highestPrice;
-            this.lowestPrice     = lowestPrice;
-            this.avgTrust        = avgTrust;
-            this.onTimeCount     = onTimeCount;
-            this.lateCount       = lateCount;
-            this.agentNames      = agentNames;
+            this.totalDelivered = totalDelivered;
+            this.totalAgents= totalAgents;
+            this.elapsedSeconds = elapsedSeconds;
+            this.totalEarnings = totalEarnings;
+            this.avgPrice= avgPrice;
+            this.highestPrice = highestPrice;
+            this.lowestPrice = lowestPrice;
+            this.avgTrust= avgTrust;
+            this.onTimeCount = onTimeCount;
+            this.lateCount= lateCount;
+            this.agentNames = agentNames;
             this.agentDeliveries = agentDeliveries;
-            this.agentEarnings   = agentEarnings;
-            this.agentTrusts     = agentTrusts;
+            this.agentEarnings = agentEarnings;
+            this.agentTrusts= agentTrusts;
         }
     }
 
@@ -138,17 +138,11 @@ public class SummaryDialog extends JDialog {
         JPanel card = card();
         card.add(sectionLbl("PERFORMANCE BREAKDOWN"));
         card.add(Box.createVerticalStrut(10));
-
-        // Earnings related in Purple
         card.add(statRow("Total Earnings", String.format("%.0f DZD", s.totalEarnings), PURPLE));
         card.add(statRow("Avg. Price / Order", String.format("%.1f DZD", s.avgPrice), PURPLE));
         card.add(statRow("Highest Order", String.format("%.1f DZD", s.highestPrice), PURPLE));
         card.add(statRow("Lowest Order", String.format("%.1f DZD", s.lowestPrice), PURPLE));
-
-        // Trust Level in Blue with big T
         card.add(statRow("Trust Level Average", String.format("%.1f", s.avgTrust), BLUE));
-
-        // Others
         card.add(statRow("On Time Deliveries", String.valueOf(s.onTimeCount), GREEN));
         card.add(statRow("Late Deliveries", String.valueOf(s.lateCount), RED));
         return card;
@@ -158,9 +152,7 @@ public class SummaryDialog extends JDialog {
         JPanel card = card();
         card.add(sectionLbl("AGENT PERFORMANCE LEADERBOARD"));
         card.add(Box.createVerticalStrut(12));
-
-        // Manual loop fix for the .stream() error
-        int best = 1;
+        int best=1;
         if (s.agentDeliveries != null && !s.agentDeliveries.isEmpty()) {
             for (Integer count : s.agentDeliveries) {
                 if (count > best) best = count;
@@ -207,9 +199,7 @@ public class SummaryDialog extends JDialog {
             }
         };
         bar.setOpaque(false);
-        barContainer.add(bar, BorderLayout.CENTER);
-
-        // Leaderboard font bigger and bolder. Used "T=" as requested.
+        barContainer.add(bar, BorderLayout.CENTER);.
         JLabel statsL = new JLabel(count + " Del | " + String.format("%.0f", earn) + " DZD | T=" + String.format("%.1f", trust));
         statsL.setForeground(TEXT);
         statsL.setFont(new Font("Consolas", Font.BOLD, 14));
@@ -226,7 +216,7 @@ public class SummaryDialog extends JDialog {
         JPanel wrap = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         wrap.setOpaque(false);
         JButton again = roundBtn("RUN AGAIN", BLUE, new Color(15, 30, 50));
-        JButton exit  = roundBtn("EXIT", RED, new Color(40, 20, 25));
+        JButton exit = roundBtn("EXIT", RED, new Color(40, 20, 25));
 
         again.addActionListener(e -> { dispose(); owner.dispose(); });
         exit.addActionListener(e -> System.exit(0));
@@ -308,12 +298,9 @@ public class SummaryDialog extends JDialog {
         l.setFont(new Font("Segoe UI", Font.BOLD, 11));
         return l;
     }
-
-    // THE MISSING METHOD IS BACK!
     private String formatTime(long secs) {
         return String.format("%02d:%02d", secs / 60, secs % 60);
     }
-
     public static void displayReport(Frame owner, Stats s) {
         new SummaryDialog(owner, s).setVisible(true);
     }
