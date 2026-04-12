@@ -19,22 +19,22 @@ public class WarehouseAgent extends Agent {
     private static final double LON_MAX = 4.580;
     private static final int TICK = 2500;
 
-    private static final double W_PRICE    = 0.30;
+    private static final double W_PRICE= 0.30;
     private static final double W_DISTANCE = 0.50;
-    private static final double W_TRUST    = 0.20;
+    private static final double W_TRUST = 0.20;
 
     private final Queue<Order> pending   = new LinkedList<>();
     private final Map<String, Order> allOrders = new HashMap<>();
     private final Random rng = new Random();
     private int maxOrders = 6;
-    private int live      = 0;
+    private int live = 0;
     private int totalDone = 0;
-    private int seq       = 1;
+    private int seq  = 1;
 
     @Override
     protected void setup() {
         Object[] args = getArguments();
-        if (args != null && args.length > 0) {
+        if (args != null && args.length > 0){
             try { maxOrders = Integer.parseInt(args[0].toString()); }
             catch (NumberFormatException ignored) {}
         }
@@ -72,8 +72,8 @@ public class WarehouseAgent extends Agent {
 
     private void spawnOrder() {
         if (live >= maxOrders) return;
-        double lat  = LAT_MIN + rng.nextDouble() * (LAT_MAX - LAT_MIN);
-        double lon  = LON_MIN + rng.nextDouble() * (LON_MAX - LON_MIN);
+        double lat = LAT_MIN + rng.nextDouble() * (LAT_MAX - LAT_MIN);
+        double lon= LON_MIN + rng.nextDouble() * (LON_MAX - LON_MIN);
         String coords = String.format("%.4f, %.4f", lat, lon);
         Location dest = new Location(lat, lon, coords);
         String id = "ORD-" + (seq++);
@@ -114,12 +114,12 @@ public class WarehouseAgent extends Agent {
         private int received  = 0;
         private double bestScore = -1;
         private jade.core.AID winner = null;
-        private double winnerPrice   = 0;
+        private double winnerPrice= 0;
         private double winnerEtaMin  = 0;
         private final List<jade.core.AID> losers = new ArrayList<>();
 
         CollectBids(Order order, int expected) {
-            this.order    = order;
+            this.order = order;
             this.expected = expected;
         }
 
@@ -135,10 +135,10 @@ public class WarehouseAgent extends Agent {
                 received++;
                 if (msg.getPerformative() == ACLMessage.PROPOSE) {
                     String[] parts = msg.getContent().split(":");
-                    double bidPrice  = Double.parseDouble(parts[2]);
-                    double distKm    = Double.parseDouble(parts[3]);
-                    int    trustLvl  = Integer.parseInt(parts[4]);
-                    double etaMin    = Double.parseDouble(parts[5]);
+                    double bidPrice = Double.parseDouble(parts[2]);
+                    double distKm = Double.parseDouble(parts[3]);
+                    int trustLvl = Integer.parseInt(parts[4]);
+                    double etaMin = Double.parseDouble(parts[5]);
 
                     double priceScore = bidPrice > 0 ? 1.0 / bidPrice : 0;
                     double distScore  = distKm  > 0 ? 1.0 / distKm   : 0;
@@ -154,9 +154,9 @@ public class WarehouseAgent extends Agent {
 
                     if (finalScore > bestScore) {
                         if (winner != null) losers.add(winner);
-                        bestScore    = finalScore;
-                        winner       = msg.getSender();
-                        winnerPrice  = bidPrice;
+                        bestScore = finalScore;
+                        winner = msg.getSender();
+                        winnerPrice = bidPrice;
                         winnerEtaMin = etaMin;
                     } else {
                         losers.add(msg.getSender());
@@ -183,11 +183,12 @@ public class WarehouseAgent extends Agent {
                 order.assign(winner.getLocalName());
                 MapRegistry.updateOrderStatus(order);
                 MapRegistry.setOrderPrice(order.getOrderId(), winnerPrice);
+                MapRegistry.setOrderEta(order.getOrderId(), winnerEtaMin);
                 MapRegistry.updateDeliveryPinColor(order.getOrderId(), agentColor(winner.getLocalName()));
                 MapRegistry.log("[ASSIGNED] " + order.getOrderId() + " → " + winner.getLocalName()
                         + " | score=" + String.format("%.4f", bestScore)
                         + " price=" + String.format("%.1f", winnerPrice) + " DZD"
-                        + " eta=" + String.format("%.1f", winnerEtaMin) + "min"
+                        + " eta=" + String.format("%.0f", winnerEtaMin) + " min"
                         + " waited=" + order.getWaitTimeSeconds() + "s");
 
                 for (jade.core.AID loser : losers) {
@@ -209,19 +210,24 @@ public class WarehouseAgent extends Agent {
             MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
             ACLMessage msg = myAgent.receive(mt);
             if (msg != null && msg.getContent().startsWith("DELIVERED:")) {
-                String id    = msg.getContent().split(":")[1];
-                Order order  = allOrders.get(id);
+                String[] parts= msg.getContent().split(":");
+                String   id = parts[1];
+                boolean  onTime  = parts.length > 2 && Boolean.parseBoolean(parts[2]);
+                double elapsed = parts.length > 3 ? Double.parseDouble(parts[3]) : -1;
+                Order order = allOrders.get(id);
                 if (order != null) {
-                    order.markDelivered();
+                    order.markDelivered(onTime, elapsed);
                     totalDone++;
                     live--;
                     MapRegistry.removeDeliveryPin(id);
                     MapRegistry.updateOrderStatus(order);
+                    MapRegistry.setOrderOnTime(id, onTime);
                     MapRegistry.recordDelivery(order);
-                    long secs = order.getTotalTimeSeconds();
-                    String timeStr = secs < 60 ? secs + "s" : String.format("%.1fmin", secs / 60.0);
-                    MapRegistry.log("[DELIVERED] " + id + " | time: " + timeStr);
-                    System.out.println("[WAREHOUSE] delivered " + id + " live=" + live + "/" + maxOrders);
+                    String tag = onTime ? "[ON TIME]" : "[LATE]";
+                    String timeStr = elapsed < 0 ? "?" : String.format("%.0f min", elapsed);
+                    MapRegistry.log("[DELIVERED] " + id + " " + tag + " | " + timeStr);
+                    System.out.println("[WAREHOUSE] delivered " + id
+                            + " onTime=" + onTime + " live=" + live + "/" + maxOrders);
                 }
             } else {
                 block();
@@ -231,17 +237,17 @@ public class WarehouseAgent extends Agent {
 
     private java.awt.Color agentColor(String name) {
         return switch (name) {
-            case "Delivery-1"  -> new java.awt.Color(239, 68,  68);
-            case "Delivery-2"  -> new java.awt.Color(0,  200,  80);
-            case "Delivery-3"  -> new java.awt.Color(160, 32, 240);
-            case "Delivery-4"  -> new java.awt.Color(34,  211, 238);
-            case "Delivery-5"  -> new java.awt.Color(249, 115,  22);
-            case "Delivery-6"  -> new java.awt.Color(236,  72, 153);
-            case "Delivery-7"  -> new java.awt.Color(132, 204,  22);
-            case "Delivery-8"  -> new java.awt.Color(56,  189, 248);
-            case "Delivery-9"  -> new java.awt.Color(251, 113, 133);
-            case "Delivery-10" -> new java.awt.Color(52,  211, 153);
-            default            -> new java.awt.Color(148, 163, 184);
+            case "Delivery-1" -> new java.awt.Color(239, 68, 68);
+            case "Delivery-2" -> new java.awt.Color(0,200, 80);
+            case "Delivery-3" -> new java.awt.Color(249, 115, 22);
+            case "Delivery-4" -> new java.awt.Color(34,211, 238);
+            case "Delivery-5"  -> new java.awt.Color(249, 115, 22);
+            case "Delivery-6" -> new java.awt.Color(236, 72, 153);
+            case "Delivery-7" -> new java.awt.Color(132, 204, 22);
+            case "Delivery-8" -> new java.awt.Color(56,189, 248);
+            case "Delivery-9" -> new java.awt.Color(251,113,133);
+            case "Delivery-10" -> new java.awt.Color(52, 211, 153);
+            default -> new java.awt.Color(148, 163, 184);
         };
     }
 
