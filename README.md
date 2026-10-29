@@ -334,6 +334,8 @@ A few non-obvious issues came up during development worth documenting for anyone
 
 ## **Attoui Radhwane**
 
+## **Amali Ishak** - [@ishakamali0](https://github.com/ishakamali0).
+
 ## **Melouki Anes CHoayb**
 
 
