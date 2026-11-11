@@ -330,7 +330,7 @@ A few non-obvious issues came up during development worth documenting for anyone
 
 ## **Barkat Younes** — [@Younes-Barkat](https://github.com/Younes-Barkat)
 
-## **Benkhelil Mohamed El Amin**
+## **Benkhelil Mohamed El Amin** [@Ilyassebkh](https://github.com/Ilyassebkh)
 
 ## **Attoui Radhwane**
 
